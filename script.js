@@ -232,23 +232,21 @@ function renderCategories() {
     });
 }
 
+// 4단계: 컨텐츠 렌더링 (수정됨: 검색 시에도 최신순 정렬 유지)
 function renderContent() {
     contentList.innerHTML = '';
     
-    // 1. 메인 탭 필터
+    // 1. 필터링 (메인 탭 -> 모음집 -> 카테고리 -> 검색어)
     let result = contentsData.filter(item => item.mainTab === currentMainTab);
     
-    // 2. 모음집 필터
     if (currentCollection !== 'All') {
         result = result.filter(item => item.collection === currentCollection);
     }
     
-    // 3. 카테고리 필터
     if (selectedCategories.size > 0) {
         result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
     }
 
-    // 4. 🔍 검색어 필터 (제목, 카테고리, 날짜)
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         result = result.filter(item => 
@@ -258,6 +256,15 @@ function renderContent() {
         );
     }
 
+    // ⚡ [핵심 수정] 필터링된 결과를 날짜순으로 다시 한 번 정렬 (안전장치)
+    result.sort((a, b) => {
+        // 날짜 형식이 달라도 처리할 수 있게 변환
+        const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
+        const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
+        return dateB - dateA; // 내림차순 (최신이 위로)
+    });
+
+    // 결과 없음 처리
     if (result.length === 0) {
         if (contentsData.length > 0) noResultsMsg.classList.remove('hidden');
         loadMoreContainer.classList.add('hidden');
@@ -265,6 +272,7 @@ function renderContent() {
     }
     noResultsMsg.classList.add('hidden');
 
+    // 렌더링
     const endIndex = currentPage * ITEMS_PER_PAGE;
     result.slice(0, endIndex).forEach(item => {
         const card = document.createElement('div');
