@@ -62,7 +62,15 @@ async function initApp() {
     const rawData = await fetchGoogleSheetData();
     if (rawData) {
         contentsData = processRawData(rawData.data);
-        contentsData.sort((a, b) => new Date(b.date) - new Date(a.date)); 
+        
+        // ⚡ [강화된 정렬 로직] 무조건 최신순 (날짜 없으면 맨 뒤로)
+        contentsData.sort((a, b) => {
+            const dateA = a.date ? new Date(a.date).getTime() : 0;
+            const dateB = b.date ? new Date(b.date).getTime() : 0;
+            // 내림차순 (큰 날짜가 먼저)
+            return dateB - dateA; 
+        });
+
         applySiteConfig(rawData.config);
         
         renderMainTabs();
@@ -174,6 +182,12 @@ function renderCollections() {
 function renderCategories() {
     keywordFilterSection.innerHTML = '';
 
+    // [수정됨] 뉴비 > 모음집일 때는 카테고리 숨김
+    if (currentMainTab === 'newbie' && currentCollection === '모음집') {
+        keywordFilterSection.classList.add('hidden');
+        return;
+    }
+
     let filteredData = contentsData.filter(item => item.mainTab === currentMainTab);
     if (currentCollection !== 'All') filteredData = filteredData.filter(item => item.collection === currentCollection);
     
@@ -234,13 +248,13 @@ function renderContent() {
         result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
     }
 
-    // 4. 🔍 검색어 필터 (제목 OR 카테고리 OR ✨날짜✨)
+    // 4. 🔍 검색어 필터 (제목, 카테고리, 날짜)
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         result = result.filter(item => 
             item.title.toLowerCase().includes(query) || 
             item.categoryList.some(c => c.toLowerCase().includes(query)) ||
-            (item.date && item.date.includes(query)) // 날짜 검색 추가
+            (item.date && item.date.includes(query)) 
         );
     }
 
@@ -297,7 +311,6 @@ function setupEventListeners() {
         };
     }
 
-    // 검색창 이벤트
     if(searchInput) {
         searchInput.addEventListener('input', (e) => {
             searchQuery = e.target.value.trim();
