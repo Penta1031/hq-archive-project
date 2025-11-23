@@ -15,8 +15,6 @@
         body { font-family: 'Pretendard', sans-serif; background-color: #141414; color: #ffffff; }
         .text-red-hq { color: #E50914; }
         .bg-red-hq { background-color: #E50914; }
-        
-        /* 가로 스크롤바 숨김 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -65,7 +63,8 @@
         </button>
     </header>
 
-    <div id="main-app-area" class="hidden transition-opacity duration-1000 opacity-0 min-h-screen bg-[#141414]">
+    <div id="main-app-area" class="min-h-screen bg-[#141414]">
+        
         <div id="scroll-target" class="absolute top-0"></div>
 
         <main class="relative z-20 px-4 md:px-12 pb-20 pt-0 md:pt-12 bg-[#141414]">
@@ -130,7 +129,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    
     <script src="./firebase-config.js"></script> 
     <script src="./script.js"></script> 
 </body>

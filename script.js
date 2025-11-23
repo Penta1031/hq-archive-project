@@ -2,7 +2,7 @@
 // ⚙️ 설정 영역
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
-const ADMIN_PASSWORD = '1234';
+const ADMIN_PASSWORD = '1028@@';
 
 const CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
@@ -75,7 +75,7 @@ async function initApp() {
     }
 }
 
-// ✨ 데이터 가공 (연도, 월별, 키워드, 서치키워드 추가)
+// 데이터 가공
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
@@ -85,23 +85,18 @@ function processRawData(data) {
         const rawDate = item['날짜'] || item['date'] || '';
         const thumb = item['썸네일'] || item['thumbnail'] || '';
         
-        // 1. 카테고리 분류용 (I열)
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
-        // 2. 표시용 데이터 추출 (요청하신 내용)
+        // 메타데이터
         const year = (item['연도'] || '').trim();
-        const month = (item['월별'] || '').replace('월', '').trim(); // "05월" -> "05"
+        const month = (item['월별'] || '').replace('월', '').trim();
         const searchKw = (item['서치 키워드'] || '').trim();
         const keywords = (item['키워드'] || '').trim();
 
-        // 연도/월 합치기 (예: 2025.05)
         let dateDisplay = rawDate; 
-        if (year && month) {
-            dateDisplay = `${year}.${month.padStart(2, '0')}`;
-        } else if (year) {
-            dateDisplay = year;
-        }
+        if (year && month) dateDisplay = `${year}.${month.padStart(2, '0')}`;
+        else if (year) dateDisplay = year;
 
         // 분류 로직
         let collectionName = '기타';
@@ -136,10 +131,9 @@ function processRawData(data) {
             collection: collectionName,
             categoryList: categoryList,
             thumbnail: thumb,
-            // 추가된 표시 데이터
-            dateDisplay: dateDisplay, // 연도.월
-            searchKeywords: searchKw, // 서치 키워드
-            displayKeywords: keywords // 키워드
+            dateDisplay: dateDisplay,
+            searchKeywords: searchKw,
+            displayKeywords: keywords
         };
     }).filter(item => item !== null);
 }
@@ -266,7 +260,6 @@ function renderCategories() {
     });
 }
 
-// 4단계: 컨텐츠 렌더링 (수정됨: 연도/월별 상단, 키워드 하단 노출)
 function renderContent() {
     contentList.innerHTML = '';
     
@@ -284,7 +277,7 @@ function renderContent() {
             item.title.toLowerCase().includes(query) || 
             item.categoryList.some(c => c.toLowerCase().includes(query)) ||
             (item.date && item.date.includes(query)) ||
-            (item.searchKeywords && item.searchKeywords.toLowerCase().includes(query)) // 서치키워드도 검색
+            (item.searchKeywords && item.searchKeywords.toLowerCase().includes(query)) 
         );
     }
 
@@ -312,7 +305,6 @@ function renderContent() {
             thumbnailHtml = `<div class="aspect-video overflow-hidden"><img src="${item.thumbnail}" class="w-full h-full object-cover transition duration-500 group-hover:brightness-110" alt="${item.title}"></div>`;
         }
 
-        // 키워드 HTML 생성 (서치키워드 + 키워드)
         let keywordBadges = '';
         if (item.searchKeywords) keywordBadges += `<span class="text-gray-400 mr-1">#${item.searchKeywords}</span>`;
         if (item.displayKeywords) keywordBadges += `<span class="text-gray-500">#${item.displayKeywords}</span>`;
@@ -324,9 +316,7 @@ function renderContent() {
                     <span class="text-[9px] font-bold text-red-500 border border-red-500 px-1 rounded tracking-tight truncate max-w-[70px]">${item.collection}</span>
                     <span class="text-[9px] text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">${item.dateDisplay || '-'}</span>
                 </div>
-                
                 <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white mb-1">${item.title}</h3>
-                
                 <div class="text-[9px] leading-tight line-clamp-1">
                     ${keywordBadges}
                 </div>
@@ -344,16 +334,8 @@ function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
         watchBtn.onclick = () => {
-            mainAppArea.classList.remove('hidden');
-            setTimeout(() => {
-                mainAppArea.classList.remove('opacity-0');
-                scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-            
-            currentMainTab = 'must-read';
-            currentCollection = 'All';
-            renderMainTabs();
-            refreshView();
+            // 숨김 해제 로직 제거 (이미 보이니까), 단순 스크롤만 수행
+            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
     }
 
