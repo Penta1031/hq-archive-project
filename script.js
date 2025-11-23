@@ -62,22 +62,20 @@ async function initApp() {
     const rawData = await fetchGoogleSheetData();
     if (rawData) {
         contentsData = processRawData(rawData.data);
-        
-        // ⚡ [강화된 정렬 로직] 무조건 최신순 (날짜 없으면 맨 뒤로)
+        // 날짜순 정렬 (최신순)
         contentsData.sort((a, b) => {
-            const dateA = a.date ? new Date(a.date).getTime() : 0;
-            const dateB = b.date ? new Date(b.date).getTime() : 0;
-            // 내림차순 (큰 날짜가 먼저)
+            const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
+            const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
             return dateB - dateA; 
         });
 
         applySiteConfig(rawData.config);
-        
         renderMainTabs();
         refreshView();
     }
 }
 
+// ✨ 데이터 가공 (연도, 월별, 키워드, 서치키워드 추가)
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
@@ -86,25 +84,62 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = item['날짜'] || item['date'] || '';
         const thumb = item['썸네일'] || item['thumbnail'] || '';
+        
+        // 1. 카테고리 분류용 (I열)
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
-        let collectionName = '기타';
-        if (categoryList.length > 0) {
-            const firstCat = categoryList[0];
-            if (['질투', '친지마', '모음집', '뉴비'].includes(firstCat)) collectionName = firstCat;
-            else if (['입덕가이드', '연말결산', '필독'].includes(firstCat)) collectionName = firstCat;
-            else collectionName = REVERSE_LOOKUP[firstCat] || '기타';
+        // 2. 표시용 데이터 추출 (요청하신 내용)
+        const year = (item['연도'] || '').trim();
+        const month = (item['월별'] || '').replace('월', '').trim(); // "05월" -> "05"
+        const searchKw = (item['서치 키워드'] || '').trim();
+        const keywords = (item['키워드'] || '').trim();
+
+        // 연도/월 합치기 (예: 2025.05)
+        let dateDisplay = rawDate; 
+        if (year && month) {
+            dateDisplay = `${year}.${month.padStart(2, '0')}`;
+        } else if (year) {
+            dateDisplay = year;
         }
 
-        let targetTab = TAB_MAPPING[collectionName] || 'archive';
+        // 분류 로직
+        let collectionName = '기타';
+        let targetTab = 'archive';
+
+        if (categoryList.some(c => ['입덕가이드', '연말결산', '필독'].includes(c))) {
+            targetTab = 'must-read';
+            if (categoryList.includes('입덕가이드')) collectionName = '입덕가이드';
+            else if (categoryList.includes('연말결산')) collectionName = '연말결산';
+            else collectionName = '필독';
+        }
+        else if (categoryList.some(c => ['질투', '친지마', '모음집', '뉴비'].includes(c))) {
+            targetTab = 'newbie';
+            if (categoryList.includes('질투')) collectionName = '질투';
+            else if (categoryList.includes('친지마')) collectionName = '친지마';
+            else if (categoryList.includes('모음집')) collectionName = '모음집';
+            else collectionName = '기타';
+        }
+        else {
+            targetTab = 'archive';
+            for (const cat of categoryList) {
+                if (REVERSE_LOOKUP[cat]) {
+                    collectionName = REVERSE_LOOKUP[cat];
+                    break;
+                }
+            }
+        }
 
         return {
             title, link, date: rawDate,
             mainTab: targetTab,
             collection: collectionName,
             categoryList: categoryList,
-            thumbnail: thumb
+            thumbnail: thumb,
+            // 추가된 표시 데이터
+            dateDisplay: dateDisplay, // 연도.월
+            searchKeywords: searchKw, // 서치 키워드
+            displayKeywords: keywords // 키워드
         };
     }).filter(item => item !== null);
 }
@@ -182,7 +217,6 @@ function renderCollections() {
 function renderCategories() {
     keywordFilterSection.innerHTML = '';
 
-    // [수정됨] 뉴비 > 모음집일 때는 카테고리 숨김
     if (currentMainTab === 'newbie' && currentCollection === '모음집') {
         keywordFilterSection.classList.add('hidden');
         return;
@@ -232,17 +266,14 @@ function renderCategories() {
     });
 }
 
-// 4단계: 컨텐츠 렌더링 (수정됨: 검색 시에도 최신순 정렬 유지)
+// 4단계: 컨텐츠 렌더링 (수정됨: 연도/월별 상단, 키워드 하단 노출)
 function renderContent() {
     contentList.innerHTML = '';
     
-    // 1. 필터링 (메인 탭 -> 모음집 -> 카테고리 -> 검색어)
     let result = contentsData.filter(item => item.mainTab === currentMainTab);
-    
     if (currentCollection !== 'All') {
         result = result.filter(item => item.collection === currentCollection);
     }
-    
     if (selectedCategories.size > 0) {
         result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
     }
@@ -252,19 +283,17 @@ function renderContent() {
         result = result.filter(item => 
             item.title.toLowerCase().includes(query) || 
             item.categoryList.some(c => c.toLowerCase().includes(query)) ||
-            (item.date && item.date.includes(query)) 
+            (item.date && item.date.includes(query)) ||
+            (item.searchKeywords && item.searchKeywords.toLowerCase().includes(query)) // 서치키워드도 검색
         );
     }
 
-    // ⚡ [핵심 수정] 필터링된 결과를 날짜순으로 다시 한 번 정렬 (안전장치)
     result.sort((a, b) => {
-        // 날짜 형식이 달라도 처리할 수 있게 변환
         const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
         const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
-        return dateB - dateA; // 내림차순 (최신이 위로)
+        return dateB - dateA;
     });
 
-    // 결과 없음 처리
     if (result.length === 0) {
         if (contentsData.length > 0) noResultsMsg.classList.remove('hidden');
         loadMoreContainer.classList.add('hidden');
@@ -272,7 +301,6 @@ function renderContent() {
     }
     noResultsMsg.classList.add('hidden');
 
-    // 렌더링
     const endIndex = currentPage * ITEMS_PER_PAGE;
     result.slice(0, endIndex).forEach(item => {
         const card = document.createElement('div');
@@ -284,14 +312,24 @@ function renderContent() {
             thumbnailHtml = `<div class="aspect-video overflow-hidden"><img src="${item.thumbnail}" class="w-full h-full object-cover transition duration-500 group-hover:brightness-110" alt="${item.title}"></div>`;
         }
 
+        // 키워드 HTML 생성 (서치키워드 + 키워드)
+        let keywordBadges = '';
+        if (item.searchKeywords) keywordBadges += `<span class="text-gray-400 mr-1">#${item.searchKeywords}</span>`;
+        if (item.displayKeywords) keywordBadges += `<span class="text-gray-500">#${item.displayKeywords}</span>`;
+
         card.innerHTML = `
             ${thumbnailHtml}
             <div class="p-2">
                 <div class="flex items-center justify-between mb-1">
                     <span class="text-[9px] font-bold text-red-500 border border-red-500 px-1 rounded tracking-tight truncate max-w-[70px]">${item.collection}</span>
-                    <span class="text-[9px] text-gray-500">${item.date ? item.date.split('T')[0] : ''}</span>
+                    <span class="text-[9px] text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">${item.dateDisplay || '-'}</span>
                 </div>
-                <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white">${item.title}</h3>
+                
+                <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white mb-1">${item.title}</h3>
+                
+                <div class="text-[9px] leading-tight line-clamp-1">
+                    ${keywordBadges}
+                </div>
             </div>
         `;
         contentList.appendChild(card);
