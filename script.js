@@ -2,14 +2,17 @@
 // ⚙️ 설정 영역
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
-const ADMIN_PASSWORD = '1028@@';
+const ADMIN_PASSWORD = '1234';
 
+// 📌 1. 모음집별 키워드 정의 (수정됨)
 const CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
     '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브', '라이브'],
-    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷', '사진'],
+    // [수정] 투샷: 요청하신 4개만 고정
+    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷'],
     '메시지 모음집': ['프롬혚쾌', '혚쾌버블', '버블', '메시지'],
-    '미디어 모음집': ['팬싸', '인터뷰', '자체컨텐츠', '방송', '공식컨텐츠', '자컨', '예능']
+    // [수정] 미디어: 요청하신 컨텐츠 추가 (레코딩로그, 만년썰전 등)
+    '미디어 모음집': ['팬싸', '인터뷰', '자체컨텐츠', '방송', '공식컨텐츠', '자컨', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠']
 };
 
 const REVERSE_LOOKUP = {};
@@ -17,6 +20,7 @@ for (const [collection, items] of Object.entries(CATEGORY_GROUPS)) {
     items.forEach(item => REVERSE_LOOKUP[item] = collection);
 }
 
+// 📌 2. 탭 매핑
 const TAB_MAPPING = {
     '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read',
     '질투': 'newbie', '친지마': 'newbie', '모음집': 'newbie', '혚쾌 키워드': 'newbie', '뉴비': 'newbie',
@@ -24,6 +28,7 @@ const TAB_MAPPING = {
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
+// 📌 3. 고정 노출 순서
 const NEWBIE_COLLECTIONS = ['질투', '친지마', '모음집'];
 const ARCHIVE_COLLECTIONS = ['무대 모음집', '라이브 모음집', '투샷 모음집', '메시지 모음집', '미디어 모음집'];
 
@@ -75,7 +80,7 @@ async function initApp() {
     }
 }
 
-// 데이터 가공
+// ✨ 데이터 가공
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
@@ -84,7 +89,6 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = item['날짜'] || item['date'] || '';
         const thumb = item['썸네일'] || item['thumbnail'] || '';
-        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
@@ -98,23 +102,26 @@ function processRawData(data) {
         if (year && month) dateDisplay = `${year}.${month.padStart(2, '0')}`;
         else if (year) dateDisplay = year;
 
-        // 분류 로직
+        // 📌 분류 로직
         let collectionName = '기타';
         let targetTab = 'archive';
 
+        // 1. [필독] 체크
         if (categoryList.some(c => ['입덕가이드', '연말결산', '필독'].includes(c))) {
             targetTab = 'must-read';
             if (categoryList.includes('입덕가이드')) collectionName = '입덕가이드';
             else if (categoryList.includes('연말결산')) collectionName = '연말결산';
             else collectionName = '필독';
         }
-        else if (categoryList.some(c => ['질투', '친지마', '모음집', '뉴비'].includes(c))) {
+        // 2. [뉴비] 체크
+        else if (categoryList.some(c => ['질투', '친지마', '모음집', '뉴비', '혚쾌 키워드'].includes(c))) {
             targetTab = 'newbie';
             if (categoryList.includes('질투')) collectionName = '질투';
             else if (categoryList.includes('친지마')) collectionName = '친지마';
             else if (categoryList.includes('모음집')) collectionName = '모음집';
             else collectionName = '기타';
         }
+        // 3. [아카이브] (나머지)
         else {
             targetTab = 'archive';
             for (const cat of categoryList) {
@@ -334,7 +341,6 @@ function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
         watchBtn.onclick = () => {
-            // 숨김 해제 로직 제거 (이미 보이니까), 단순 스크롤만 수행
             scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
     }
