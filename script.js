@@ -27,6 +27,7 @@ const TAB_MAPPING = {
 const NEWBIE_COLLECTIONS = ['질투', '친지마', '모음집'];
 const ARCHIVE_COLLECTIONS = ['무대 모음집', '라이브 모음집', '투샷 모음집', '메시지 모음집', '미디어 모음집'];
 
+
 // ============================================================================
 // 🚀 전역 변수
 // ============================================================================
@@ -39,6 +40,7 @@ let currentPage = 1;
 const ITEMS_PER_PAGE = 24;
 let isAdminMode = false;
 
+// DOM 요소
 const mainAppArea = document.getElementById('main-app-area');
 const scrollTarget = document.getElementById('scroll-target');
 const contentList = document.getElementById('content-list');
@@ -51,28 +53,51 @@ const heroSection = document.getElementById('hero-section');
 const searchInput = document.getElementById('search-input');
 
 // ============================================================================
-// 🚀 앱 초기화
+// 🚀 앱 초기화 (속도 최적화: 캐시 우선 로드)
 // ============================================================================
 async function initApp() {
     console.log("App Start...");
     setupEventListeners();
 
-    const rawData = await fetchGoogleSheetData();
-    if (rawData) {
-        contentsData = processRawData(rawData.data);
-        
-        // 날짜 정렬 (포맷 호환성 강화)
-        contentsData.sort((a, b) => {
-            // 2024.05.20, 2024-05-20, 2024/05/20 등 다양한 포맷 대응
-            const dateA = a.date ? new Date(String(a.date).replace(/[./]/g, '-')).getTime() : 0;
-            const dateB = b.date ? new Date(String(b.date).replace(/[./]/g, '-')).getTime() : 0;
-            return dateB - dateA; 
-        });
+    // 1. ⚡ [핵심] 저장된 데이터가 있으면 즉시 로드 (0초 컷)
+    const cachedData = localStorage.getItem('hq_archive_data');
+    const cachedConfig = localStorage.getItem('hq_archive_config');
 
-        applySiteConfig(rawData.config);
+    if (cachedData) {
+        console.log("⚡ 캐시 데이터 로드 완료");
+        const parsedData = JSON.parse(cachedData);
+        contentsData = processRawData(parsedData);
+        contentsData.sort((a, b) => dateSort(a, b));
+        
+        if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
+        
         renderMainTabs();
         refreshView();
     }
+
+    // 2. 백그라운드에서 최신 데이터 가져와서 업데이트 (사용자는 모르게)
+    const rawData = await fetchGoogleSheetData();
+    if (rawData) {
+        console.log("🌐 최신 데이터 업데이트 완료");
+        // 데이터 저장 (다음 접속을 위해)
+        localStorage.setItem('hq_archive_data', JSON.stringify(rawData.data));
+        localStorage.setItem('hq_archive_config', JSON.stringify(rawData.config));
+
+        contentsData = processRawData(rawData.data);
+        contentsData.sort((a, b) => dateSort(a, b));
+        applySiteConfig(rawData.config);
+        
+        // UI 살짝 갱신 (보고 있던 화면이 튀지 않게 조심)
+        // 검색 중이거나 페이지 넘긴 상태면 갱신 보류할 수도 있으나, 일단은 강제 갱신
+        refreshView();
+    }
+}
+
+// 날짜 정렬 함수 분리
+function dateSort(a, b) {
+    const dateA = a.date ? new Date(String(a.date).replace(/[./]/g, '-')).getTime() : 0;
+    const dateB = b.date ? new Date(String(b.date).replace(/[./]/g, '-')).getTime() : 0;
+    return dateB - dateA;
 }
 
 function processRawData(data) {
@@ -92,13 +117,9 @@ function processRawData(data) {
         const keywords = (item['키워드'] || '').trim();
 
         let dateDisplay = rawDate; 
-        // 날짜 표시 포맷팅
         if (year && month) dateDisplay = `${year}.${month.padStart(2, '0')}`;
         else if (year) dateDisplay = year;
-        else if (rawDate) {
-             // 날짜만 있는 경우 YYYY.MM.DD 형태로 예쁘게
-             dateDisplay = rawDate.replace(/-/g, '.');
-        }
+        else if (rawDate) dateDisplay = rawDate.replace(/-/g, '.');
 
         let collectionName = '기타';
         let targetTab = 'archive';
@@ -260,9 +281,7 @@ function renderCategories() {
     });
 }
 
-// ⚡ [핵심 수정] 렌더링 속도 최적화 (innerHTML batch update)
 function renderContent() {
-    // 1. 필터링
     let result = contentsData.filter(item => item.mainTab === currentMainTab);
     if (currentCollection !== 'All') {
         result = result.filter(item => item.collection === currentCollection);
@@ -280,14 +299,8 @@ function renderContent() {
         );
     }
 
-    // 2. 정렬
-    result.sort((a, b) => {
-        const dateA = a.date ? new Date(String(a.date).replace(/[./]/g, '-')).getTime() : 0;
-        const dateB = b.date ? new Date(String(b.date).replace(/[./]/g, '-')).getTime() : 0;
-        return dateB - dateA;
-    });
+    result.sort((a, b) => dateSort(a, b));
 
-    // 3. 결과 없음 처리
     if (result.length === 0) {
         contentList.innerHTML = '';
         if (contentsData.length > 0) noResultsMsg.classList.remove('hidden');
@@ -296,7 +309,6 @@ function renderContent() {
     }
     noResultsMsg.classList.add('hidden');
 
-    // 4. ⚡ [최적화] HTML 문자열 한 번에 만들기 (DOM 조작 최소화)
     const endIndex = currentPage * ITEMS_PER_PAGE;
     const itemsToRender = result.slice(0, endIndex);
     
@@ -325,16 +337,14 @@ function renderContent() {
                 </div>
             </div>
         `;
-    }).join(''); // 배열을 하나의 긴 문자열로 합침
+    }).join('');
 
-    // 5. 한 번에 삽입
     contentList.innerHTML = htmlBuffer;
     
     if (endIndex >= result.length) loadMoreContainer.classList.add('hidden');
     else loadMoreContainer.classList.remove('hidden');
 }
 
-// 이벤트 핸들러
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
