@@ -4,14 +4,11 @@
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 const ADMIN_PASSWORD = '1234';
 
-// 📌 1. 모음집별 키워드 정의 (수정됨)
 const CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
     '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브', '라이브'],
-    // [수정] 투샷: 요청하신 4개만 고정
-    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷'],
+    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷', '사진'],
     '메시지 모음집': ['프롬혚쾌', '혚쾌버블', '버블', '메시지'],
-    // [수정] 미디어: 요청하신 컨텐츠 추가 (레코딩로그, 만년썰전 등)
     '미디어 모음집': ['팬싸', '인터뷰', '자체컨텐츠', '방송', '공식컨텐츠', '자컨', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠']
 };
 
@@ -20,7 +17,6 @@ for (const [collection, items] of Object.entries(CATEGORY_GROUPS)) {
     items.forEach(item => REVERSE_LOOKUP[item] = collection);
 }
 
-// 📌 2. 탭 매핑
 const TAB_MAPPING = {
     '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read',
     '질투': 'newbie', '친지마': 'newbie', '모음집': 'newbie', '혚쾌 키워드': 'newbie', '뉴비': 'newbie',
@@ -28,10 +24,8 @@ const TAB_MAPPING = {
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
-// 📌 3. 고정 노출 순서
 const NEWBIE_COLLECTIONS = ['질투', '친지마', '모음집'];
 const ARCHIVE_COLLECTIONS = ['무대 모음집', '라이브 모음집', '투샷 모음집', '메시지 모음집', '미디어 모음집'];
-
 
 // ============================================================================
 // 🚀 전역 변수
@@ -45,7 +39,6 @@ let currentPage = 1;
 const ITEMS_PER_PAGE = 24;
 let isAdminMode = false;
 
-// DOM 요소
 const mainAppArea = document.getElementById('main-app-area');
 const scrollTarget = document.getElementById('scroll-target');
 const contentList = document.getElementById('content-list');
@@ -67,10 +60,12 @@ async function initApp() {
     const rawData = await fetchGoogleSheetData();
     if (rawData) {
         contentsData = processRawData(rawData.data);
-        // 날짜순 정렬 (최신순)
+        
+        // 날짜 정렬 (포맷 호환성 강화)
         contentsData.sort((a, b) => {
-            const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
-            const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
+            // 2024.05.20, 2024-05-20, 2024/05/20 등 다양한 포맷 대응
+            const dateA = a.date ? new Date(String(a.date).replace(/[./]/g, '-')).getTime() : 0;
+            const dateB = b.date ? new Date(String(b.date).replace(/[./]/g, '-')).getTime() : 0;
             return dateB - dateA; 
         });
 
@@ -80,7 +75,6 @@ async function initApp() {
     }
 }
 
-// ✨ 데이터 가공
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
@@ -92,28 +86,29 @@ function processRawData(data) {
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
-        // 메타데이터
         const year = (item['연도'] || '').trim();
         const month = (item['월별'] || '').replace('월', '').trim();
         const searchKw = (item['서치 키워드'] || '').trim();
         const keywords = (item['키워드'] || '').trim();
 
         let dateDisplay = rawDate; 
+        // 날짜 표시 포맷팅
         if (year && month) dateDisplay = `${year}.${month.padStart(2, '0')}`;
         else if (year) dateDisplay = year;
+        else if (rawDate) {
+             // 날짜만 있는 경우 YYYY.MM.DD 형태로 예쁘게
+             dateDisplay = rawDate.replace(/-/g, '.');
+        }
 
-        // 📌 분류 로직
         let collectionName = '기타';
         let targetTab = 'archive';
 
-        // 1. [필독] 체크
         if (categoryList.some(c => ['입덕가이드', '연말결산', '필독'].includes(c))) {
             targetTab = 'must-read';
             if (categoryList.includes('입덕가이드')) collectionName = '입덕가이드';
             else if (categoryList.includes('연말결산')) collectionName = '연말결산';
             else collectionName = '필독';
         }
-        // 2. [뉴비] 체크
         else if (categoryList.some(c => ['질투', '친지마', '모음집', '뉴비', '혚쾌 키워드'].includes(c))) {
             targetTab = 'newbie';
             if (categoryList.includes('질투')) collectionName = '질투';
@@ -121,7 +116,6 @@ function processRawData(data) {
             else if (categoryList.includes('모음집')) collectionName = '모음집';
             else collectionName = '기타';
         }
-        // 3. [아카이브] (나머지)
         else {
             targetTab = 'archive';
             for (const cat of categoryList) {
@@ -158,7 +152,6 @@ function refreshView() {
     renderContent();     
 }
 
-// 🎨 UI 렌더링
 function renderMainTabs() {
     document.querySelectorAll('.main-tab-btn').forEach(btn => {
         if (btn.dataset.tab === currentMainTab) {
@@ -267,9 +260,9 @@ function renderCategories() {
     });
 }
 
+// ⚡ [핵심 수정] 렌더링 속도 최적화 (innerHTML batch update)
 function renderContent() {
-    contentList.innerHTML = '';
-    
+    // 1. 필터링
     let result = contentsData.filter(item => item.mainTab === currentMainTab);
     if (currentCollection !== 'All') {
         result = result.filter(item => item.collection === currentCollection);
@@ -277,7 +270,6 @@ function renderContent() {
     if (selectedCategories.size > 0) {
         result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
     }
-
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         result = result.filter(item => 
@@ -288,55 +280,61 @@ function renderContent() {
         );
     }
 
+    // 2. 정렬
     result.sort((a, b) => {
-        const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
-        const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
+        const dateA = a.date ? new Date(String(a.date).replace(/[./]/g, '-')).getTime() : 0;
+        const dateB = b.date ? new Date(String(b.date).replace(/[./]/g, '-')).getTime() : 0;
         return dateB - dateA;
     });
 
+    // 3. 결과 없음 처리
     if (result.length === 0) {
+        contentList.innerHTML = '';
         if (contentsData.length > 0) noResultsMsg.classList.remove('hidden');
         loadMoreContainer.classList.add('hidden');
         return;
     }
     noResultsMsg.classList.add('hidden');
 
+    // 4. ⚡ [최적화] HTML 문자열 한 번에 만들기 (DOM 조작 최소화)
     const endIndex = currentPage * ITEMS_PER_PAGE;
-    result.slice(0, endIndex).forEach(item => {
-        const card = document.createElement('div');
-        card.className = "group bg-[#181818] rounded-md overflow-hidden cursor-pointer relative transition duration-300 hover:z-10 hover:scale-105 hover:shadow-xl";
-        card.onclick = () => window.open(item.link, '_blank');
-
+    const itemsToRender = result.slice(0, endIndex);
+    
+    const htmlBuffer = itemsToRender.map(item => {
         let thumbnailHtml = `<div class="aspect-video bg-gray-800 flex items-center justify-center"><i class="fas fa-play text-2xl text-gray-600"></i></div>`;
         if (item.thumbnail) {
-            thumbnailHtml = `<div class="aspect-video overflow-hidden"><img src="${item.thumbnail}" class="w-full h-full object-cover transition duration-500 group-hover:brightness-110" alt="${item.title}"></div>`;
+            thumbnailHtml = `<div class="aspect-video overflow-hidden"><img src="${item.thumbnail}" class="w-full h-full object-cover transition duration-500 group-hover:brightness-110" alt="${item.title}" loading="lazy"></div>`;
         }
 
         let keywordBadges = '';
         if (item.searchKeywords) keywordBadges += `<span class="text-gray-400 mr-1">#${item.searchKeywords}</span>`;
         if (item.displayKeywords) keywordBadges += `<span class="text-gray-500">#${item.displayKeywords}</span>`;
 
-        card.innerHTML = `
-            ${thumbnailHtml}
-            <div class="p-2">
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-[9px] font-bold text-red-500 border border-red-500 px-1 rounded tracking-tight truncate max-w-[70px]">${item.collection}</span>
-                    <span class="text-[9px] text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">${item.dateDisplay || '-'}</span>
-                </div>
-                <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white mb-1">${item.title}</h3>
-                <div class="text-[9px] leading-tight line-clamp-1">
-                    ${keywordBadges}
+        return `
+            <div class="group bg-[#181818] rounded-md overflow-hidden cursor-pointer relative transition duration-300 hover:z-10 hover:scale-105 hover:shadow-xl" onclick="window.open('${item.link}', '_blank')">
+                ${thumbnailHtml}
+                <div class="p-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[9px] font-bold text-red-500 border border-red-500 px-1 rounded tracking-tight truncate max-w-[70px]">${item.collection}</span>
+                        <span class="text-[9px] text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">${item.dateDisplay || '-'}</span>
+                    </div>
+                    <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white mb-1">${item.title}</h3>
+                    <div class="text-[9px] leading-tight line-clamp-1">
+                        ${keywordBadges}
+                    </div>
                 </div>
             </div>
         `;
-        contentList.appendChild(card);
-    });
+    }).join(''); // 배열을 하나의 긴 문자열로 합침
+
+    // 5. 한 번에 삽입
+    contentList.innerHTML = htmlBuffer;
     
     if (endIndex >= result.length) loadMoreContainer.classList.add('hidden');
     else loadMoreContainer.classList.remove('hidden');
 }
 
-// ⚡ 이벤트 핸들러
+// 이벤트 핸들러
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
