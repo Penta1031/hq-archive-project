@@ -3,17 +3,15 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-// 📌 1. 기본 분류 규칙 (시트 로딩 전 임시 사용)
-// (이제 시트의 CategoryRule 탭에서 이 내용을 수정하면 자동으로 덮어씌워집니다!)
+// 📌 기본 분류 규칙
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
-    '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브', '라이브'],
-    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷', '사진'],
+    '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브'],
+    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷'],
     '메시지 모음집': ['프롬혚쾌', '혚쾌버블', '버블', '메시지'],
-    '미디어 모음집': ['팬싸', '인터뷰', '자체컨텐츠', '방송', '공식컨텐츠', '자컨', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠']
+    '미디어 모음집': ['팬싸', '인터뷰', '방송', '공식컨텐츠', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠', '합주일지']
 };
 
-// 역방향 조회 맵 (동적으로 생성됨)
 let REVERSE_LOOKUP = {};
 function buildReverseLookup() {
     REVERSE_LOOKUP = {};
@@ -21,17 +19,21 @@ function buildReverseLookup() {
         items.forEach(item => REVERSE_LOOKUP[item] = collection);
     }
 }
-buildReverseLookup(); // 초기 실행
+buildReverseLookup();
 
+// 📌 탭 매핑 (여기에 '월드컵' 추가됨)
 const TAB_MAPPING = {
-    '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read',
-    '질투': 'newbie', '친지마': 'newbie', '모음집': 'newbie', '혚쾌 키워드': 'newbie', '뉴비': 'newbie',
+    '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read', '월드컵': 'must-read', // ⚡ 월드컵 추가
     '무대 모음집': 'archive', '라이브 모음집': 'archive', '투샷 모음집': 'archive', 
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
-const NEWBIE_COLLECTIONS = ['질투', '친지마', '모음집'];
-const ARCHIVE_COLLECTIONS = ['무대 모음집', '라이브 모음집', '투샷 모음집', '메시지 모음집', '미디어 모음집'];
+// 뉴비 탭 순서
+let NEWBIE_COLLECTIONS = [
+    { id: '질투', name: '질투' }, 
+    { id: '친지마', name: '친지마' }, 
+    { id: '모음집', name: '모음집' }
+];
 
 
 // ============================================================================
@@ -79,22 +81,22 @@ async function initApp() {
     setupEventListeners();
     initDatePicker();
 
+    const cachedRules = localStorage.getItem('hq_archive_rules');
+    if (cachedRules) {
+        try {
+            const rules = JSON.parse(cachedRules);
+            applyCategoryRules(rules);
+        } catch(e) {}
+    }
+
     const cachedData = localStorage.getItem('hq_archive_data');
     const cachedConfig = localStorage.getItem('hq_archive_config');
-    // ✨ 캐시된 카테고리 규칙이 있으면 먼저 적용
-    const cachedRules = localStorage.getItem('hq_archive_rules');
-
-    if (cachedRules) {
-        CATEGORY_GROUPS = JSON.parse(cachedRules);
-        buildReverseLookup(); // 규칙이 바뀌었으니 맵 다시 생성
-    }
 
     if (cachedData) {
         const parsedData = JSON.parse(cachedData);
         contentsData = processRawData(parsedData);
         contentsData.sort((a, b) => dateSort(a, b));
         if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
-        
         renderMainTabs();
         refreshView();
     }
@@ -107,20 +109,38 @@ async function initApp() {
 
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
-        // ✨ 최신 규칙(categoryGroups)이 있으면 덮어쓰기
-        if (fullRawData.categoryGroups && Object.keys(fullRawData.categoryGroups).length > 0) {
-            CATEGORY_GROUPS = fullRawData.categoryGroups;
-            buildReverseLookup(); // 맵 갱신
-            localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS)); // 저장
-        }
-
         updateDataAndRender(fullRawData);
         localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
         localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
     }
 }
 
+function applyCategoryRules(rules) {
+    if (rules['뉴비 구성']) {
+        NEWBIE_COLLECTIONS = rules['뉴비 구성'].map(item => {
+            if (typeof item === 'string' && item.includes(':')) {
+                const [key, label] = item.split(':');
+                return { id: key.trim(), name: label.trim() };
+            }
+            return { id: item.trim(), name: item.trim() };
+        });
+        
+        NEWBIE_COLLECTIONS.forEach(obj => {
+            TAB_MAPPING[obj.id] = 'newbie';
+        });
+        delete rules['뉴비 구성'];
+    }
+
+    CATEGORY_GROUPS = rules;
+    buildReverseLookup();
+    localStorage.setItem('hq_archive_rules', JSON.stringify(rules));
+}
+
 function updateDataAndRender(rawData) {
+    if (rawData.categoryGroups && Object.keys(rawData.categoryGroups).length > 0) {
+        applyCategoryRules(rawData.categoryGroups);
+    }
+
     contentsData = processRawData(rawData.data);
     contentsData.sort((a, b) => dateSort(a, b));
     applySiteConfig(rawData.config);
@@ -128,9 +148,9 @@ function updateDataAndRender(rawData) {
 }
 
 function dateSort(a, b) {
-    if (!a.standardDate) return 1;
-    if (!b.standardDate) return -1;
-    return b.standardDate.localeCompare(a.standardDate);
+    const dateA = a.standardDate || '0000-00-00';
+    const dateB = b.standardDate || '0000-00-00';
+    return dateB.localeCompare(dateA);
 }
 
 function processRawData(data) {
@@ -141,7 +161,6 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
-        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
@@ -155,9 +174,12 @@ function processRawData(data) {
 
         if (rawDate) {
             const cleanDate = rawDate.replace(/\./g, '-').replace(/\//g, '-');
-            if (!isNaN(Date.parse(cleanDate))) {
-                standardDate = new Date(cleanDate).toISOString().split('T')[0];
-                dateDisplay = cleanDate.replace(/-/g, '.'); 
+            if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                const parts = cleanDate.split('-');
+                standardDate = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+                dateDisplay = standardDate.replace(/-/g, '.');
+            } else {
+                dateDisplay = rawDate;
             }
         } 
         else if (year && month) {
@@ -170,23 +192,24 @@ function processRawData(data) {
         let collectionName = '기타';
         let targetTab = 'archive';
 
-        if (categoryList.some(c => ['입덕가이드', '연말결산', '필독'].includes(c))) {
+        // 1. 필독 체크
+        if (categoryList.some(c => ['입덕가이드', '연말결산', '필독', '월드컵'].includes(c))) {
             targetTab = 'must-read';
             if (categoryList.includes('입덕가이드')) collectionName = '입덕가이드';
             else if (categoryList.includes('연말결산')) collectionName = '연말결산';
+            else if (categoryList.includes('월드컵')) collectionName = '월드컵'; // ⚡ 월드컵 우선순위
             else collectionName = '필독';
         }
-        else if (categoryList.some(c => ['질투', '친지마', '모음집', '뉴비', '혚쾌 키워드'].includes(c))) {
+        // 2. 뉴비 체크
+        else if (categoryList.some(c => NEWBIE_COLLECTIONS.some(nc => nc.id === c) || ['뉴비', '혚쾌 키워드'].includes(c))) {
             targetTab = 'newbie';
-            if (categoryList.includes('질투')) collectionName = '질투';
-            else if (categoryList.includes('친지마')) collectionName = '친지마';
-            else if (categoryList.includes('모음집')) collectionName = '모음집';
-            else collectionName = '기타';
+            const matchObj = NEWBIE_COLLECTIONS.find(nc => categoryList.includes(nc.id));
+            collectionName = matchObj ? matchObj.id : '기타';
         }
+        // 3. 아카이브
         else {
             targetTab = 'archive';
             for (const cat of categoryList) {
-                // REVERSE_LOOKUP은 이제 동적으로 생성되므로 시트 변경사항이 즉시 반영됨
                 if (REVERSE_LOOKUP[cat]) {
                     collectionName = REVERSE_LOOKUP[cat];
                     break;
@@ -309,6 +332,7 @@ function renderCalendar() {
 }
 
 function initDatePicker() {
+    if(!yearSelect || !monthSelect) return;
     const currentYear = new Date().getFullYear();
     yearSelect.innerHTML = '';
     for (let y = 2015; y <= currentYear + 1; y++) {
@@ -318,7 +342,6 @@ function initDatePicker() {
         if(y === currentYear) opt.selected = true;
         yearSelect.appendChild(opt);
     }
-
     monthSelect.innerHTML = '';
     for (let m = 1; m <= 12; m++) {
         const opt = document.createElement('option');
@@ -332,30 +355,31 @@ function renderCollections() {
     if (currentMainTab === 'calendar') return;
 
     subCategoryList.innerHTML = '';
-    let listToShow = ['All'];
+    let listToShow = []; 
 
-    if (currentMainTab === 'archive') listToShow = ['All', ...ARCHIVE_COLLECTIONS];
-    else if (currentMainTab === 'newbie') listToShow = ['All', ...NEWBIE_COLLECTIONS];
-    else {
+    if (currentMainTab === 'archive') {
+        listToShow = [{id:'All', name:'전체 보기'}, ...Object.keys(CATEGORY_GROUPS).map(k => ({id:k, name:k}))];
+    } else if (currentMainTab === 'newbie') {
+        listToShow = [{id:'All', name:'전체 보기'}, ...NEWBIE_COLLECTIONS];
+    } else {
         const tabData = contentsData.filter(item => item.mainTab === currentMainTab);
         const uniqueCols = new Set();
         tabData.forEach(item => {
             if(item.collection && item.collection !== '기타') uniqueCols.add(item.collection);
         });
-        listToShow = ['All', ...Array.from(uniqueCols).sort()];
+        listToShow = [{id:'All', name:'전체 보기'}, ...Array.from(uniqueCols).sort().map(k => ({id:k, name:k}))];
     }
 
-    listToShow.forEach(col => {
-        const label = col === 'All' ? '전체 보기' : col;
+    listToShow.forEach(item => {
         const btn = document.createElement('button');
-        const isActive = (currentCollection === col);
+        const isActive = (currentCollection === item.id);
         
         btn.className = `shrink-0 px-4 py-2 text-sm md:text-base font-bold transition duration-200 rounded-full mr-2 ${
             isActive ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
         }`;
-        btn.innerText = label;
+        btn.innerText = item.name;
         btn.onclick = () => {
-            currentCollection = col;
+            currentCollection = item.id; 
             selectedCategories.clear();
             currentPage = 1;
             refreshView();
@@ -379,7 +403,6 @@ function renderCategories() {
     const availableCats = new Set();
     filteredData.forEach(item => item.categoryList.forEach(c => availableCats.add(c)));
 
-    // 동적 규칙 적용
     let displayList = [];
     if (CATEGORY_GROUPS[currentCollection]) {
         displayList = CATEGORY_GROUPS[currentCollection].filter(c => availableCats.has(c));
@@ -401,6 +424,10 @@ function renderCategories() {
     keywordFilterSection.appendChild(label);
 
     displayList.forEach(cat => {
+        // ⚡ [수정됨] 현재 모음집 이름과 똑같은 키워드 버튼은 숨김 (중복 방지)
+        // 예: '질투' 모음집에서 '질투' 버튼 숨기기
+        if (cat === currentCollection) return;
+
         const btn = document.createElement('button');
         const isSelected = selectedCategories.has(cat);
         btn.className = `text-xs md:text-sm px-3 py-1 rounded-full border transition duration-200 mb-1 ${
@@ -501,11 +528,23 @@ function renderContent() {
     else loadMoreContainer.classList.remove('hidden');
 }
 
+// ⚡ [수정됨] 스크롤 위치 보정 (모바일에서 검색창으로 확실히 이동)
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
         watchBtn.onclick = () => {
-            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // 검색창 컨테이너 찾기
+            const searchContainer = document.getElementById('search-input').parentElement.parentElement;
+            if (searchContainer) {
+                // getBoundingClientRect().top : 현재 화면 기준 요소의 위치
+                // window.pageYOffset : 현재 스크롤 된 양
+                // -20 : 위쪽 여백을 살짝 주어서 너무 딱 붙지 않게 (원하시면 0으로)
+                const y = searchContainer.getBoundingClientRect().top + window.pageYOffset - 20;
+                window.scrollTo({top: y, behavior: 'smooth'});
+            } else {
+                // 혹시 못 찾으면 기존 타겟으로
+                scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         };
     }
 
@@ -534,21 +573,25 @@ function setupEventListeners() {
         renderContent();
     };
 
-    calendarTitleBtn.onclick = (e) => {
-        e.stopPropagation();
-        datePicker.classList.toggle('hidden');
-        datePicker.classList.toggle('flex');
-    };
+    if(calendarTitleBtn) {
+        calendarTitleBtn.onclick = (e) => {
+            e.stopPropagation();
+            datePicker.classList.toggle('hidden');
+            datePicker.classList.toggle('flex');
+        };
+    }
 
-    applyDateBtn.onclick = () => {
-        const y = parseInt(yearSelect.value);
-        const m = parseInt(monthSelect.value);
-        calendarDate = new Date(y, m, 1);
-        datePicker.classList.add('hidden');
-        datePicker.classList.remove('flex');
-        renderCalendar();
-        renderContent();
-    };
+    if(applyDateBtn) {
+        applyDateBtn.onclick = () => {
+            const y = parseInt(yearSelect.value);
+            const m = parseInt(monthSelect.value);
+            calendarDate = new Date(y, m, 1);
+            datePicker.classList.add('hidden');
+            datePicker.classList.remove('flex');
+            renderCalendar();
+            renderContent();
+        };
+    }
 
     document.addEventListener('click', (e) => {
         if (datePicker && !datePicker.contains(e.target) && !calendarTitleBtn.contains(e.target)) {
