@@ -53,53 +53,45 @@ const heroSection = document.getElementById('hero-section');
 const searchInput = document.getElementById('search-input');
 
 // ============================================================================
-// 🚀 앱 초기화 (속도 최적화: 캐시 우선 로드)
+// 🚀 앱 초기화 (2단계 로딩 적용)
 // ============================================================================
 async function initApp() {
     console.log("App Start...");
     setupEventListeners();
 
-    // 1. ⚡ [핵심] 저장된 데이터가 있으면 즉시 로드 (0초 컷)
-    const cachedData = localStorage.getItem('hq_archive_data');
-    const cachedConfig = localStorage.getItem('hq_archive_config');
+    // ⚡ 1단계: 빠른 로딩 (Fast Fetch) - 50개만 먼저 가져옴
+    // 사용자가 빈 화면을 보는 시간을 최소화함
+    fetchGoogleSheetData('fast').then(rawData => {
+        if (rawData && contentsData.length === 0) { // 아직 전체 데이터가 안 왔을 때만 렌더링
+            console.log("⚡ 빠른 데이터 로드 완료 (50개)");
+            updateDataAndRender(rawData);
+        }
+    });
 
-    if (cachedData) {
-        console.log("⚡ 캐시 데이터 로드 완료");
-        const parsedData = JSON.parse(cachedData);
-        contentsData = processRawData(parsedData);
-        contentsData.sort((a, b) => dateSort(a, b));
-        
-        if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
-        
-        renderMainTabs();
-        refreshView();
-    }
-
-    // 2. 백그라운드에서 최신 데이터 가져와서 업데이트 (사용자는 모르게)
-    const rawData = await fetchGoogleSheetData();
-    if (rawData) {
-        console.log("🌐 최신 데이터 업데이트 완료");
-        // 데이터 저장 (다음 접속을 위해)
-        localStorage.setItem('hq_archive_data', JSON.stringify(rawData.data));
-        localStorage.setItem('hq_archive_config', JSON.stringify(rawData.config));
-
-        contentsData = processRawData(rawData.data);
-        contentsData.sort((a, b) => dateSort(a, b));
-        applySiteConfig(rawData.config);
-        
-        // UI 살짝 갱신 (보고 있던 화면이 튀지 않게 조심)
-        // 검색 중이거나 페이지 넘긴 상태면 갱신 보류할 수도 있으나, 일단은 강제 갱신
-        refreshView();
+    // 🐢 2단계: 전체 로딩 (Full Fetch) - 나머지 다 가져옴
+    const fullRawData = await fetchGoogleSheetData('full');
+    if (fullRawData) {
+        console.log("🌐 전체 데이터 로드 완료");
+        updateDataAndRender(fullRawData);
     }
 }
 
-// 날짜 정렬 함수 분리
-function dateSort(a, b) {
-    const dateA = a.date ? new Date(String(a.date).replace(/[./]/g, '-')).getTime() : 0;
-    const dateB = b.date ? new Date(String(b.date).replace(/[./]/g, '-')).getTime() : 0;
-    return dateB - dateA;
+// 데이터 업데이트 및 렌더링 공통 함수
+function updateDataAndRender(rawData) {
+    contentsData = processRawData(rawData.data);
+    // 날짜순 정렬
+    contentsData.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
+        const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
+        return dateB - dateA; 
+    });
+
+    applySiteConfig(rawData.config);
+    renderMainTabs();
+    refreshView();
 }
 
+// 데이터 가공
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
@@ -160,9 +152,12 @@ function processRawData(data) {
     }).filter(item => item !== null);
 }
 
-async function fetchGoogleSheetData() {
+// API 호출 (모드 지원)
+async function fetchGoogleSheetData(mode = 'full') {
     try {
-        const response = await fetch(GOOGLE_SHEET_API_URL);
+        // mode 파라미터 추가 (fast 또는 full)
+        const url = `${GOOGLE_SHEET_API_URL}?mode=${mode}`;
+        const response = await fetch(url);
         return await response.json();
     } catch (error) { return null; }
 }
@@ -173,6 +168,7 @@ function refreshView() {
     renderContent();     
 }
 
+// 🎨 UI 렌더링
 function renderMainTabs() {
     document.querySelectorAll('.main-tab-btn').forEach(btn => {
         if (btn.dataset.tab === currentMainTab) {
@@ -289,6 +285,7 @@ function renderContent() {
     if (selectedCategories.size > 0) {
         result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
     }
+
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         result = result.filter(item => 
@@ -299,7 +296,11 @@ function renderContent() {
         );
     }
 
-    result.sort((a, b) => dateSort(a, b));
+    result.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
+        const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
+        return dateB - dateA;
+    });
 
     if (result.length === 0) {
         contentList.innerHTML = '';
@@ -345,6 +346,7 @@ function renderContent() {
     else loadMoreContainer.classList.remove('hidden');
 }
 
+// ⚡ 이벤트 핸들러
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
