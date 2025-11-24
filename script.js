@@ -2,12 +2,11 @@
 // ⚙️ 설정 영역
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
-const ADMIN_PASSWORD = '1234';
 
 const CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
     '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브', '라이브'],
-    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷', '사진'],
+    '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷'],
     '메시지 모음집': ['프롬혚쾌', '혚쾌버블', '버블', '메시지'],
     '미디어 모음집': ['팬싸', '인터뷰', '자체컨텐츠', '방송', '공식컨텐츠', '자컨', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠']
 };
@@ -37,8 +36,7 @@ let currentCollection = 'All';
 let selectedCategories = new Set(); 
 let searchQuery = ''; 
 let currentPage = 1;
-const ITEMS_PER_PAGE = 24;
-let isAdminMode = false;
+const ITEMS_PER_PAGE = 30; // ⚡ 30개씩 로딩
 
 // DOM 요소
 const mainAppArea = document.getElementById('main-app-area');
@@ -52,54 +50,84 @@ const noResultsMsg = document.getElementById('no-results');
 const heroSection = document.getElementById('hero-section');
 const searchInput = document.getElementById('search-input');
 
+// 캘린더 DOM
+const calendarSection = document.getElementById('calendar-section');
+const calendarTitle = document.getElementById('calendar-title');
+const calendarGrid = document.getElementById('calendar-grid');
+const selectedDateTitle = document.getElementById('selected-date-title');
+
+// 캘린더 변수
+let calendarDate = new Date();
+let selectedDate = null;
+
 // ============================================================================
-// 🚀 앱 초기화 (2단계 로딩 적용)
+// 🚀 앱 초기화
 // ============================================================================
 async function initApp() {
     console.log("App Start...");
     setupEventListeners();
 
-    // ⚡ 1단계: 빠른 로딩 (Fast Fetch) - 50개만 먼저 가져옴
-    // 사용자가 빈 화면을 보는 시간을 최소화함
+    // 1. 캐시된 데이터 확인 (localStorage)
+    const cachedData = localStorage.getItem('hq_archive_data');
+    const cachedConfig = localStorage.getItem('hq_archive_config');
+
+    if (cachedData) {
+        const parsedData = JSON.parse(cachedData);
+        contentsData = processRawData(parsedData);
+        contentsData.sort((a, b) => dateSort(a, b));
+        if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
+        
+        renderMainTabs();
+        refreshView();
+    }
+
+    // 2. ⚡ 빠른 로딩 (30개 먼저 가져오기)
+    // 캐시가 없거나 업데이트가 필요할 때 빠르게 화면을 채움
     fetchGoogleSheetData('fast').then(rawData => {
-        if (rawData && contentsData.length === 0) { // 아직 전체 데이터가 안 왔을 때만 렌더링
-            console.log("⚡ 빠른 데이터 로드 완료 (50개)");
+        if (rawData && contentsData.length === 0) {
+            console.log("⚡ Fast Load (30 items)");
             updateDataAndRender(rawData);
         }
     });
 
-    // 🐢 2단계: 전체 로딩 (Full Fetch) - 나머지 다 가져옴
+    // 3. 전체 로딩 (백그라운드)
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
-        console.log("🌐 전체 데이터 로드 완료");
+        console.log("🌐 Full Load Complete");
         updateDataAndRender(fullRawData);
+        // 로컬 스토리지 업데이트
+        localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
+        localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
     }
 }
 
-// 데이터 업데이트 및 렌더링 공통 함수
 function updateDataAndRender(rawData) {
     contentsData = processRawData(rawData.data);
-    // 날짜순 정렬
-    contentsData.sort((a, b) => {
-        const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
-        const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
-        return dateB - dateA; 
-    });
-
+    contentsData.sort((a, b) => dateSort(a, b));
     applySiteConfig(rawData.config);
-    renderMainTabs();
+    
+    // 탭이 유지되도록 현재 뷰 갱신
     refreshView();
 }
 
-// 데이터 가공
+// 날짜 정렬 헬퍼
+function dateSort(a, b) {
+    // standardDate(YYYY-MM-DD) 기준으로 정렬
+    if (!a.standardDate) return 1; // 날짜 없으면 뒤로
+    if (!b.standardDate) return -1;
+    return b.standardDate.localeCompare(a.standardDate);
+}
+
+// ✨ 데이터 가공 (날짜 로직 대폭 수정)
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
         if (!title) return null;
 
         const link = (item['링크'] || item['link'] || '').trim();
-        const rawDate = item['날짜'] || item['date'] || '';
+        const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
+        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
@@ -108,11 +136,29 @@ function processRawData(data) {
         const searchKw = (item['서치 키워드'] || '').trim();
         const keywords = (item['키워드'] || '').trim();
 
-        let dateDisplay = rawDate; 
-        if (year && month) dateDisplay = `${year}.${month.padStart(2, '0')}`;
-        else if (year) dateDisplay = year;
-        else if (rawDate) dateDisplay = rawDate.replace(/-/g, '.');
+        // 🗓️ 캘린더용 표준 날짜 (YYYY-MM-DD) 만들기
+        let standardDate = '';
+        let dateDisplay = rawDate;
 
+        // 1. rawDate가 있으면 그걸 최우선으로 파싱
+        if (rawDate) {
+            // 2025.10.31, 2025/10/31 -> 2025-10-31 로 통일
+            const cleanDate = rawDate.replace(/\./g, '-').replace(/\//g, '-');
+            // 유효한 날짜인지 체크
+            if (!isNaN(Date.parse(cleanDate))) {
+                standardDate = new Date(cleanDate).toISOString().split('T')[0];
+                dateDisplay = cleanDate.replace(/-/g, '.'); // 화면 표시는 점(.)으로
+            }
+        } 
+        // 2. rawDate가 없고 연/월만 있으면 (캘린더엔 표시 못함)
+        else if (year && month) {
+            dateDisplay = `${year}.${month.padStart(2, '0')}`;
+        } 
+        else if (year) {
+            dateDisplay = year;
+        }
+
+        // 📂 분류 로직
         let collectionName = '기타';
         let targetTab = 'archive';
 
@@ -141,6 +187,7 @@ function processRawData(data) {
 
         return {
             title, link, date: rawDate,
+            standardDate: standardDate, // 캘린더 매칭용 ID
             mainTab: targetTab,
             collection: collectionName,
             categoryList: categoryList,
@@ -152,10 +199,8 @@ function processRawData(data) {
     }).filter(item => item !== null);
 }
 
-// API 호출 (모드 지원)
 async function fetchGoogleSheetData(mode = 'full') {
     try {
-        // mode 파라미터 추가 (fast 또는 full)
         const url = `${GOOGLE_SHEET_API_URL}?mode=${mode}`;
         const response = await fetch(url);
         return await response.json();
@@ -163,12 +208,16 @@ async function fetchGoogleSheetData(mode = 'full') {
 }
 
 function refreshView() {
-    renderCollections(); 
-    renderCategories();  
-    renderContent();     
+    if (currentMainTab === 'scheduler') {
+        renderCalendar();
+        renderContent();
+    } else {
+        renderCollections(); 
+        renderCategories();  
+        renderContent();     
+    }
 }
 
-// 🎨 UI 렌더링
 function renderMainTabs() {
     document.querySelectorAll('.main-tab-btn').forEach(btn => {
         if (btn.dataset.tab === currentMainTab) {
@@ -180,18 +229,82 @@ function renderMainTabs() {
         }
         btn.onclick = () => {
             currentMainTab = btn.dataset.tab;
+            
+            // 탭 변경 시 초기화
             currentCollection = 'All'; 
             selectedCategories.clear();
             searchQuery = ''; 
             searchInput.value = '';
+            selectedDate = null;
             currentPage = 1;
+
+            if (currentMainTab === 'scheduler') {
+                calendarSection.classList.remove('hidden');
+                subCategoryList.classList.add('hidden');
+                keywordFilterSection.classList.add('hidden');
+            } else {
+                calendarSection.classList.add('hidden');
+                subCategoryList.classList.remove('hidden');
+                keywordFilterSection.classList.remove('hidden');
+                selectedDateTitle.classList.add('hidden');
+            }
+
             renderMainTabs();
             refreshView();
         };
     });
 }
 
+function renderCalendar() {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    calendarTitle.innerText = `${year}.${String(month + 1).padStart(2, '0')}`;
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    
+    calendarGrid.innerHTML = '';
+
+    for (let i = 0; i < firstDay; i++) {
+        calendarGrid.appendChild(document.createElement('div'));
+    }
+
+    for (let i = 1; i <= lastDate; i++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const cell = document.createElement('div');
+        
+        // standardDate와 정확히 일치하는지 확인
+        const hasData = contentsData.some(item => item.standardDate === dateStr);
+        const isToday = new Date().toISOString().slice(0, 10) === dateStr;
+        const isSelected = selectedDate === dateStr;
+
+        cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-800 relative
+            ${isSelected ? 'bg-gray-800 border-red-600 text-white' : 'text-gray-400'}
+            ${isToday ? 'bg-gray-800/50' : ''}
+        `;
+        
+        cell.innerHTML = `<span class="text-sm md:text-lg font-bold ${isToday ? 'text-red-500' : ''}">${i}</span>`;
+        if (hasData) cell.innerHTML += `<div class="w-1.5 h-1.5 bg-red-600 rounded-full mt-1"></div>`;
+
+        cell.onclick = () => {
+            if (selectedDate === dateStr) {
+                selectedDate = null;
+                selectedDateTitle.classList.add('hidden');
+            } else {
+                selectedDate = dateStr;
+                selectedDateTitle.innerText = `📅 ${dateStr} 의 기록`;
+                selectedDateTitle.classList.remove('hidden');
+            }
+            renderCalendar();
+            renderContent();
+        };
+        calendarGrid.appendChild(cell);
+    }
+}
+
 function renderCollections() {
+    if (currentMainTab === 'scheduler') return;
+
     subCategoryList.innerHTML = '';
     let listToShow = ['All'];
 
@@ -226,6 +339,7 @@ function renderCollections() {
 }
 
 function renderCategories() {
+    if (currentMainTab === 'scheduler') return;
     keywordFilterSection.innerHTML = '';
 
     if (currentMainTab === 'newbie' && currentCollection === '모음집') {
@@ -278,14 +392,29 @@ function renderCategories() {
 }
 
 function renderContent() {
-    let result = contentsData.filter(item => item.mainTab === currentMainTab);
-    if (currentCollection !== 'All') {
-        result = result.filter(item => item.collection === currentCollection);
-    }
-    if (selectedCategories.size > 0) {
-        result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
+    contentList.innerHTML = '';
+    let result = contentsData;
+
+    // 필터링
+    if (currentMainTab === 'scheduler') {
+        if (selectedDate) {
+            // 표준 날짜(YYYY-MM-DD)와 정확히 일치하는지 비교
+            result = result.filter(item => item.standardDate === selectedDate);
+        } else {
+            const targetMonth = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}`;
+            result = result.filter(item => item.standardDate && item.standardDate.startsWith(targetMonth));
+        }
+    } else {
+        result = result.filter(item => item.mainTab === currentMainTab);
+        if (currentCollection !== 'All') {
+            result = result.filter(item => item.collection === currentCollection);
+        }
+        if (selectedCategories.size > 0) {
+            result = result.filter(item => item.categoryList.some(c => selectedCategories.has(c)));
+        }
     }
 
+    // 검색
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         result = result.filter(item => 
@@ -296,15 +425,19 @@ function renderContent() {
         );
     }
 
-    result.sort((a, b) => {
-        const dateA = a.date ? new Date(a.date.replace(/\./g, '-')).getTime() : 0;
-        const dateB = b.date ? new Date(b.date.replace(/\./g, '-')).getTime() : 0;
-        return dateB - dateA;
-    });
+    result.sort((a, b) => dateSort(a, b));
 
+    // 결과 없음 (멘트 수정됨)
     if (result.length === 0) {
-        contentList.innerHTML = '';
-        if (contentsData.length > 0) noResultsMsg.classList.remove('hidden');
+        if (contentsData.length > 0) {
+            if (currentMainTab === 'scheduler' && selectedDate) {
+                // ⚡ [수정] 멘트 변경
+                noResultsMsg.innerHTML = `<p class="text-gray-500 text-lg">📅 ${selectedDate} 에 기록된 데이터가 없습니다.</p>`;
+            } else {
+                noResultsMsg.innerHTML = `<p class="text-gray-500 text-lg">검색 결과가 없습니다.</p>`;
+            }
+            noResultsMsg.classList.remove('hidden');
+        }
         loadMoreContainer.classList.add('hidden');
         return;
     }
@@ -346,7 +479,7 @@ function renderContent() {
     else loadMoreContainer.classList.remove('hidden');
 }
 
-// ⚡ 이벤트 핸들러
+// 이벤트 핸들러
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
@@ -363,21 +496,25 @@ function setupEventListeners() {
         });
     }
 
-    document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
-    
-    document.getElementById('admin-login').onclick = () => {
-        if (prompt("관리자 비밀번호:") === ADMIN_PASSWORD) {
-            isAdminMode = true;
-            document.getElementById('edit-bg-btn').classList.remove('hidden');
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-            alert("관리자 모드 활성화");
-        }
+    // 캘린더 이동
+    document.getElementById('prev-month').onclick = () => {
+        calendarDate.setMonth(calendarDate.getMonth() - 1);
+        renderCalendar();
+        renderContent();
+    };
+    document.getElementById('next-month').onclick = () => {
+        calendarDate.setMonth(calendarDate.getMonth() + 1);
+        renderCalendar();
+        renderContent();
+    };
+    document.getElementById('today-btn').onclick = () => {
+        calendarDate = new Date();
+        selectedDate = new Date().toISOString().slice(0, 10);
+        renderCalendar();
+        renderContent();
     };
 
-    document.getElementById('edit-bg-btn').onclick = async () => {
-        const newUrl = prompt("새 배경 URL:", heroSection.style.backgroundImage.slice(5, -2));
-        if (newUrl) await sendUpdate('update_config', { key: 'hero_bg', value: newUrl });
-    };
+    document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
     
     loadMoreButton.onclick = () => { currentPage++; renderContent(); };
 }
@@ -390,14 +527,4 @@ function applySiteConfig(config) {
     if (config.hero_bg) heroSection.style.backgroundImage = `url('${config.hero_bg}')`;
 }
 
-async function sendUpdate(action, payload) {
-    await fetch(GOOGLE_SHEET_API_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...payload })
-    });
-    location.reload();
-}
-
-window.editConfig = async function(key) { if (isAdminMode) alert("시트에서 수정하세요."); };
 document.addEventListener('DOMContentLoaded', initApp);
