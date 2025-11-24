@@ -3,7 +3,9 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-const CATEGORY_GROUPS = {
+// 📌 1. 기본 분류 규칙 (시트 로딩 전 임시 사용)
+// (이제 시트의 CategoryRule 탭에서 이 내용을 수정하면 자동으로 덮어씌워집니다!)
+let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
     '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브', '라이브'],
     '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷', '사진'],
@@ -11,10 +13,15 @@ const CATEGORY_GROUPS = {
     '미디어 모음집': ['팬싸', '인터뷰', '자체컨텐츠', '방송', '공식컨텐츠', '자컨', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠']
 };
 
-const REVERSE_LOOKUP = {};
-for (const [collection, items] of Object.entries(CATEGORY_GROUPS)) {
-    items.forEach(item => REVERSE_LOOKUP[item] = collection);
+// 역방향 조회 맵 (동적으로 생성됨)
+let REVERSE_LOOKUP = {};
+function buildReverseLookup() {
+    REVERSE_LOOKUP = {};
+    for (const [collection, items] of Object.entries(CATEGORY_GROUPS)) {
+        items.forEach(item => REVERSE_LOOKUP[item] = collection);
+    }
 }
+buildReverseLookup(); // 초기 실행
 
 const TAB_MAPPING = {
     '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read',
@@ -38,9 +45,6 @@ let searchQuery = '';
 let currentPage = 1;
 const ITEMS_PER_PAGE = 24;
 
-let calendarDate = new Date();
-let selectedDate = null;
-
 // DOM 요소
 const mainAppArea = document.getElementById('main-app-area');
 const scrollTarget = document.getElementById('scroll-target');
@@ -55,9 +59,17 @@ const searchInput = document.getElementById('search-input');
 
 // 캘린더 DOM
 const calendarSection = document.getElementById('calendar-section');
-const calendarTitle = document.getElementById('calendar-title');
+const calendarTitleText = document.getElementById('calendar-title-text');
+const calendarTitleBtn = document.getElementById('calendar-title-btn');
+const datePicker = document.getElementById('date-picker');
+const yearSelect = document.getElementById('year-select');
+const monthSelect = document.getElementById('month-select');
+const applyDateBtn = document.getElementById('apply-date-btn');
 const calendarGrid = document.getElementById('calendar-grid');
 const selectedDateTitle = document.getElementById('selected-date-title');
+
+let calendarDate = new Date();
+let selectedDate = null;
 
 // ============================================================================
 // 🚀 앱 초기화
@@ -69,12 +81,20 @@ async function initApp() {
 
     const cachedData = localStorage.getItem('hq_archive_data');
     const cachedConfig = localStorage.getItem('hq_archive_config');
+    // ✨ 캐시된 카테고리 규칙이 있으면 먼저 적용
+    const cachedRules = localStorage.getItem('hq_archive_rules');
+
+    if (cachedRules) {
+        CATEGORY_GROUPS = JSON.parse(cachedRules);
+        buildReverseLookup(); // 규칙이 바뀌었으니 맵 다시 생성
+    }
 
     if (cachedData) {
         const parsedData = JSON.parse(cachedData);
         contentsData = processRawData(parsedData);
         contentsData.sort((a, b) => dateSort(a, b));
         if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
+        
         renderMainTabs();
         refreshView();
     }
@@ -87,6 +107,13 @@ async function initApp() {
 
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
+        // ✨ 최신 규칙(categoryGroups)이 있으면 덮어쓰기
+        if (fullRawData.categoryGroups && Object.keys(fullRawData.categoryGroups).length > 0) {
+            CATEGORY_GROUPS = fullRawData.categoryGroups;
+            buildReverseLookup(); // 맵 갱신
+            localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS)); // 저장
+        }
+
         updateDataAndRender(fullRawData);
         localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
         localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
@@ -159,6 +186,7 @@ function processRawData(data) {
         else {
             targetTab = 'archive';
             for (const cat of categoryList) {
+                // REVERSE_LOOKUP은 이제 동적으로 생성되므로 시트 변경사항이 즉시 반영됨
                 if (REVERSE_LOOKUP[cat]) {
                     collectionName = REVERSE_LOOKUP[cat];
                     break;
@@ -237,7 +265,7 @@ function renderMainTabs() {
 function renderCalendar() {
     const year = calendarDate.getFullYear();
     const month = calendarDate.getMonth();
-    document.getElementById('calendar-title-text').innerText = `${year}.${String(month + 1).padStart(2, '0')}`;
+    calendarTitleText.innerText = `${year}.${String(month + 1).padStart(2, '0')}`;
 
     const firstDay = new Date(year, month, 1).getDay();
     const lastDate = new Date(year, month + 1, 0).getDate();
@@ -281,10 +309,6 @@ function renderCalendar() {
 }
 
 function initDatePicker() {
-    const yearSelect = document.getElementById('year-select');
-    const monthSelect = document.getElementById('month-select');
-    if(!yearSelect || !monthSelect) return;
-
     const currentYear = new Date().getFullYear();
     yearSelect.innerHTML = '';
     for (let y = 2015; y <= currentYear + 1; y++) {
@@ -355,6 +379,7 @@ function renderCategories() {
     const availableCats = new Set();
     filteredData.forEach(item => item.categoryList.forEach(c => availableCats.add(c)));
 
+    // 동적 규칙 적용
     let displayList = [];
     if (CATEGORY_GROUPS[currentCollection]) {
         displayList = CATEGORY_GROUPS[currentCollection].filter(c => availableCats.has(c));
@@ -476,16 +501,11 @@ function renderContent() {
     else loadMoreContainer.classList.remove('hidden');
 }
 
-// ⚡ 이벤트 핸들러 (수정됨: 시청하기 클릭 시 검색창을 타겟으로 이동)
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
         watchBtn.onclick = () => {
-            // 검색창을 감싸는 요소(search-input의 부모의 부모)를 타겟팅
-            const searchWrapper = document.getElementById('search-input').parentElement.parentElement;
-            if(searchWrapper) {
-                searchWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
     }
 
@@ -497,7 +517,6 @@ function setupEventListeners() {
         });
     }
 
-    // 캘린더 이벤트
     document.getElementById('prev-month').onclick = () => {
         calendarDate.setMonth(calendarDate.getMonth() - 1);
         renderCalendar();
@@ -515,31 +534,21 @@ function setupEventListeners() {
         renderContent();
     };
 
-    const calendarTitleBtn = document.getElementById('calendar-title-btn');
-    const datePicker = document.getElementById('date-picker');
-    const applyDateBtn = document.getElementById('apply-date-btn');
-    const yearSelect = document.getElementById('year-select');
-    const monthSelect = document.getElementById('month-select');
+    calendarTitleBtn.onclick = (e) => {
+        e.stopPropagation();
+        datePicker.classList.toggle('hidden');
+        datePicker.classList.toggle('flex');
+    };
 
-    if(calendarTitleBtn) {
-        calendarTitleBtn.onclick = (e) => {
-            e.stopPropagation();
-            datePicker.classList.toggle('hidden');
-            datePicker.classList.toggle('flex');
-        };
-    }
-
-    if(applyDateBtn) {
-        applyDateBtn.onclick = () => {
-            const y = parseInt(yearSelect.value);
-            const m = parseInt(monthSelect.value);
-            calendarDate = new Date(y, m, 1);
-            datePicker.classList.add('hidden');
-            datePicker.classList.remove('flex');
-            renderCalendar();
-            renderContent();
-        };
-    }
+    applyDateBtn.onclick = () => {
+        const y = parseInt(yearSelect.value);
+        const m = parseInt(monthSelect.value);
+        calendarDate = new Date(y, m, 1);
+        datePicker.classList.add('hidden');
+        datePicker.classList.remove('flex');
+        renderCalendar();
+        renderContent();
+    };
 
     document.addEventListener('click', (e) => {
         if (datePicker && !datePicker.contains(e.target) && !calendarTitleBtn.contains(e.target)) {
