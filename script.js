@@ -3,7 +3,7 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-// 📌 기본 분류 규칙 (요청하신 내용으로 완벽하게 업데이트됨)
+// 📌 기본 분류 규칙
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
     '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
@@ -28,7 +28,7 @@ const TAB_MAPPING = {
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
-// 뉴비 탭 순서 (기본값)
+// 뉴비 탭 순서
 let NEWBIE_COLLECTIONS = [
     { id: '질투', name: '질투' }, 
     { id: '친지마', name: '친지마' }, 
@@ -131,7 +131,6 @@ function applyCategoryRules(rules) {
         delete rules['뉴비 구성'];
     }
 
-    // 시트 규칙이 있으면 덮어쓰기
     if (Object.keys(rules).length > 0) {
         CATEGORY_GROUPS = rules;
     }
@@ -305,11 +304,9 @@ function renderCalendar() {
         const cell = document.createElement('div');
         
         const hasData = contentsData.some(item => item.standardDate === dateStr);
-        
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const isToday = (todayStr === dateStr);
-        
         const isSelected = selectedDate === dateStr;
 
         cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-800 relative
@@ -336,17 +333,21 @@ function renderCalendar() {
     }
 }
 
+// ⚡ [수정됨] 연도 선택 2017년부터 시작
 function initDatePicker() {
     if(!yearSelect || !monthSelect) return;
     const currentYear = new Date().getFullYear();
     yearSelect.innerHTML = '';
-    for (let y = 2015; y <= currentYear + 1; y++) {
+    
+    // 2017년부터 내년까지 생성
+    for (let y = 2017; y <= currentYear + 1; y++) {
         const opt = document.createElement('option');
         opt.value = y;
         opt.innerText = y + '년';
         if(y === currentYear) opt.selected = true;
         yearSelect.appendChild(opt);
     }
+
     monthSelect.innerHTML = '';
     for (let m = 1; m <= 12; m++) {
         const opt = document.createElement('option');
@@ -513,101 +514,4 @@ function renderContent() {
                 ${thumbnailHtml}
                 <div class="p-2">
                     <div class="flex items-center justify-between mb-1">
-                        <span class="text-[9px] font-bold text-red-500 border border-red-500 px-1 rounded tracking-tight truncate max-w-[70px]">${item.collection}</span>
-                        <span class="text-[9px] text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">${item.dateDisplay || '-'}</span>
-                    </div>
-                    <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white mb-1">${item.title}</h3>
-                    <div class="text-[9px] leading-tight line-clamp-1">
-                        ${keywordBadges}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    contentList.innerHTML = htmlBuffer;
-    
-    if (endIndex >= result.length) loadMoreContainer.classList.add('hidden');
-    else loadMoreContainer.classList.remove('hidden');
-}
-
-function setupEventListeners() {
-    const watchBtn = document.getElementById('watch-button');
-    if(watchBtn) {
-        watchBtn.onclick = () => {
-            const searchContainer = document.getElementById('search-input').parentElement.parentElement;
-            if (searchContainer) {
-                const y = searchContainer.getBoundingClientRect().top + window.pageYOffset - 20;
-                window.scrollTo({top: y, behavior: 'smooth'});
-            } else {
-                scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        };
-    }
-
-    if(searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            searchQuery = e.target.value.trim();
-            currentPage = 1;
-            renderContent();
-        });
-    }
-
-    document.getElementById('prev-month').onclick = () => {
-        calendarDate.setMonth(calendarDate.getMonth() - 1);
-        renderCalendar();
-        renderContent();
-    };
-    document.getElementById('next-month').onclick = () => {
-        calendarDate.setMonth(calendarDate.getMonth() + 1);
-        renderCalendar();
-        renderContent();
-    };
-    document.getElementById('today-btn').onclick = () => {
-        calendarDate = new Date();
-        selectedDate = new Date().toISOString().slice(0, 10);
-        renderCalendar();
-        renderContent();
-    };
-
-    if(calendarTitleBtn) {
-        calendarTitleBtn.onclick = (e) => {
-            e.stopPropagation();
-            datePicker.classList.toggle('hidden');
-            datePicker.classList.toggle('flex');
-        };
-    }
-
-    if(applyDateBtn) {
-        applyDateBtn.onclick = () => {
-            const y = parseInt(yearSelect.value);
-            const m = parseInt(monthSelect.value);
-            calendarDate = new Date(y, m, 1);
-            datePicker.classList.add('hidden');
-            datePicker.classList.remove('flex');
-            renderCalendar();
-            renderContent();
-        };
-    }
-
-    document.addEventListener('click', (e) => {
-        if (datePicker && !datePicker.contains(e.target) && !calendarTitleBtn.contains(e.target)) {
-            datePicker.classList.add('hidden');
-            datePicker.classList.remove('flex');
-        }
-    });
-
-    document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
-    
-    loadMoreButton.onclick = () => { currentPage++; renderContent(); };
-}
-
-function applySiteConfig(config) {
-    if (!config) return;
-    if (config.hero_title) document.getElementById('hero-title').innerText = config.hero_title;
-    if (config.hero_subtitle) document.getElementById('hero-subtitle').innerText = config.hero_subtitle;
-    if (config.hero_desc) document.getElementById('hero-desc').innerText = config.hero_desc;
-    if (config.hero_bg) heroSection.style.backgroundImage = `url('${config.hero_bg}')`;
-}
-
-document.addEventListener('DOMContentLoaded', initApp);
+                        <span class="text-[9px] font-bold text-red-500
