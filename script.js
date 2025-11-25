@@ -3,13 +3,13 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-// 📌 기본 분류 규칙
+// 📌 기본 분류 규칙 (요청하신 내용으로 업데이트됨)
 let CATEGORY_GROUPS = {
-    '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비', '무대', '직캠'],
-    '라이브 모음집': ['우얘합', '하루의마무리', '단체라이브', '개인라이브'],
+    '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
+    '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
     '투샷 모음집': ['인스타그램', '릴스', '셀카', '투샷'],
-    '메시지 모음집': ['프롬혚쾌', '혚쾌버블', '버블', '메시지'],
-    '미디어 모음집': ['팬싸', '인터뷰', '방송', '공식컨텐츠', '예능', '레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠', '합주일지']
+    '메시지 모음집': ['프롬혚쾌', '혚쾌버블'],
+    '미디어 모음집': ['레코딩로그', '만년썰전', '버킷리스트', '엔킷리스트', '승캠', '합주일지', '메이킹', '비하인드', '팬싸', '인터뷰', '방송', '공식컨텐츠', '예능']
 };
 
 let REVERSE_LOOKUP = {};
@@ -21,14 +21,14 @@ function buildReverseLookup() {
 }
 buildReverseLookup();
 
-// 📌 탭 매핑 (여기에 '월드컵' 추가됨)
+// 탭 매핑
 const TAB_MAPPING = {
-    '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read', '월드컵': 'must-read', // ⚡ 월드컵 추가
+    '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read', '월드컵': 'must-read',
     '무대 모음집': 'archive', '라이브 모음집': 'archive', '투샷 모음집': 'archive', 
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
-// 뉴비 탭 순서
+// 뉴비 탭 순서 (기본값)
 let NEWBIE_COLLECTIONS = [
     { id: '질투', name: '질투' }, 
     { id: '친지마', name: '친지마' }, 
@@ -131,9 +131,13 @@ function applyCategoryRules(rules) {
         delete rules['뉴비 구성'];
     }
 
-    CATEGORY_GROUPS = rules;
+    // 시트에서 가져온 규칙으로 덮어쓰기 (단, 시트가 비어있으면 기본값 유지)
+    if (Object.keys(rules).length > 0) {
+        CATEGORY_GROUPS = rules;
+    }
+    
     buildReverseLookup();
-    localStorage.setItem('hq_archive_rules', JSON.stringify(rules));
+    localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS));
 }
 
 function updateDataAndRender(rawData) {
@@ -161,6 +165,7 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
+        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
@@ -192,21 +197,18 @@ function processRawData(data) {
         let collectionName = '기타';
         let targetTab = 'archive';
 
-        // 1. 필독 체크
         if (categoryList.some(c => ['입덕가이드', '연말결산', '필독', '월드컵'].includes(c))) {
             targetTab = 'must-read';
             if (categoryList.includes('입덕가이드')) collectionName = '입덕가이드';
             else if (categoryList.includes('연말결산')) collectionName = '연말결산';
-            else if (categoryList.includes('월드컵')) collectionName = '월드컵'; // ⚡ 월드컵 우선순위
+            else if (categoryList.includes('월드컵')) collectionName = '월드컵';
             else collectionName = '필독';
         }
-        // 2. 뉴비 체크
         else if (categoryList.some(c => NEWBIE_COLLECTIONS.some(nc => nc.id === c) || ['뉴비', '혚쾌 키워드'].includes(c))) {
             targetTab = 'newbie';
             const matchObj = NEWBIE_COLLECTIONS.find(nc => categoryList.includes(nc.id));
             collectionName = matchObj ? matchObj.id : '기타';
         }
-        // 3. 아카이브
         else {
             targetTab = 'archive';
             for (const cat of categoryList) {
@@ -304,12 +306,17 @@ function renderCalendar() {
         const cell = document.createElement('div');
         
         const hasData = contentsData.some(item => item.standardDate === dateStr);
-        const isToday = new Date().toISOString().slice(0, 10) === dateStr;
+        
+        // ⚡ KST 기준 오늘 날짜 확인
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const isToday = (todayStr === dateStr);
+        
         const isSelected = selectedDate === dateStr;
 
         cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-800 relative
             ${isSelected ? 'bg-gray-800 border-red-600 text-white' : 'text-gray-400'}
-            ${isToday ? 'bg-gray-800/50' : ''}
+            ${isToday ? 'border-2 border-red-600 text-white font-bold' : 'border border-transparent'}
         `;
         
         cell.innerHTML = `<span class="text-sm md:text-lg font-bold ${isToday ? 'text-red-500' : ''}">${i}</span>`;
@@ -358,6 +365,7 @@ function renderCollections() {
     let listToShow = []; 
 
     if (currentMainTab === 'archive') {
+        // ⚡ CategoryRule 시트나 기본값 순서대로 버튼 생성
         listToShow = [{id:'All', name:'전체 보기'}, ...Object.keys(CATEGORY_GROUPS).map(k => ({id:k, name:k}))];
     } else if (currentMainTab === 'newbie') {
         listToShow = [{id:'All', name:'전체 보기'}, ...NEWBIE_COLLECTIONS];
@@ -424,9 +432,7 @@ function renderCategories() {
     keywordFilterSection.appendChild(label);
 
     displayList.forEach(cat => {
-        // ⚡ [수정됨] 현재 모음집 이름과 똑같은 키워드 버튼은 숨김 (중복 방지)
-        // 예: '질투' 모음집에서 '질투' 버튼 숨기기
-        if (cat === currentCollection) return;
+        if (cat === currentCollection) return; // 중복 숨김
 
         const btn = document.createElement('button');
         const isSelected = selectedCategories.has(cat);
@@ -528,21 +534,15 @@ function renderContent() {
     else loadMoreContainer.classList.remove('hidden');
 }
 
-// ⚡ [수정됨] 스크롤 위치 보정 (모바일에서 검색창으로 확실히 이동)
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
         watchBtn.onclick = () => {
-            // 검색창 컨테이너 찾기
             const searchContainer = document.getElementById('search-input').parentElement.parentElement;
             if (searchContainer) {
-                // getBoundingClientRect().top : 현재 화면 기준 요소의 위치
-                // window.pageYOffset : 현재 스크롤 된 양
-                // -20 : 위쪽 여백을 살짝 주어서 너무 딱 붙지 않게 (원하시면 0으로)
                 const y = searchContainer.getBoundingClientRect().top + window.pageYOffset - 20;
                 window.scrollTo({top: y, behavior: 'smooth'});
             } else {
-                // 혹시 못 찾으면 기존 타겟으로
                 scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         };
