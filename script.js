@@ -3,7 +3,7 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-// 📌 기본 분류 규칙 (요청하신 내용으로 업데이트됨)
+// 📌 기본 분류 규칙 (요청하신 내용으로 완벽하게 업데이트됨)
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
     '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
@@ -131,7 +131,7 @@ function applyCategoryRules(rules) {
         delete rules['뉴비 구성'];
     }
 
-    // 시트에서 가져온 규칙으로 덮어쓰기 (단, 시트가 비어있으면 기본값 유지)
+    // 시트 규칙이 있으면 덮어쓰기
     if (Object.keys(rules).length > 0) {
         CATEGORY_GROUPS = rules;
     }
@@ -165,7 +165,6 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
-        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
@@ -307,7 +306,6 @@ function renderCalendar() {
         
         const hasData = contentsData.some(item => item.standardDate === dateStr);
         
-        // ⚡ KST 기준 오늘 날짜 확인
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const isToday = (todayStr === dateStr);
@@ -365,7 +363,6 @@ function renderCollections() {
     let listToShow = []; 
 
     if (currentMainTab === 'archive') {
-        // ⚡ CategoryRule 시트나 기본값 순서대로 버튼 생성
         listToShow = [{id:'All', name:'전체 보기'}, ...Object.keys(CATEGORY_GROUPS).map(k => ({id:k, name:k}))];
     } else if (currentMainTab === 'newbie') {
         listToShow = [{id:'All', name:'전체 보기'}, ...NEWBIE_COLLECTIONS];
@@ -432,7 +429,7 @@ function renderCategories() {
     keywordFilterSection.appendChild(label);
 
     displayList.forEach(cat => {
-        if (cat === currentCollection) return; // 중복 숨김
+        if (cat === currentCollection) return;
 
         const btn = document.createElement('button');
         const isSelected = selectedCategories.has(cat);
