@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ 설정 영역
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzLFiRNxq3SOeXTScpiO-1NBUeNH0iwcypE-P46Y6GdpkqqQih69RzvojtklQZd3yLe/exec';
 
 // 기본 분류 규칙
 let CATEGORY_GROUPS = {
@@ -115,6 +115,24 @@ async function initApp() {
         updateDataAndRender(fullRawData);
         localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
         localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
+    }
+}
+
+async function fetchGoogleSheetData(mode) {
+    try {
+        // mode 파라미터가 있으면 URL 뒤에 붙임 (?mode=fast 등)
+        const url = `${GOOGLE_SHEET_API_URL}?mode=${mode || 'full'}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const json = await response.json();
+        return json;
+    } catch (error) {
+        console.error("데이터 로드 실패:", error);
+        return null;
     }
 }
 
@@ -337,8 +355,8 @@ function processRawData(data) {
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim(); // I열
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
-        const year = (item['연도'] || item['year'] || '').trim(); // E열
-        const month = (item['월별'] || item['month'] || '').replace('월', '').trim(); // H열
+        const year = String(item['연도'] || item['year'] || '').trim(); 
+        const month = String(item['월별'] || item['month'] || '').replace('월', '').trim();
         const searchKw = (item['서치 키워드'] || item['searchKeywords'] || '').trim(); // D열
         const rawKeywordsStr = (item['키워드'] || item['keywords'] || '').trim(); // K열
         const keywords = rawKeywordsStr;

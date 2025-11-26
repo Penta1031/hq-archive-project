@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbye-hCoj_A7peiuEkpkgqbt281lXY-QTGDimJVqnzMDxxzh38qMPzHhZsSCvmUTU1Q6/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyc3mCili8avD0Kc8Nu5B9UmhWgUCtQDbLG3_mWJ4eqrgE42nvyWmZjblPQVVfdp2DP/exec';
 
 let allData = [];
 let filteredData = [];
@@ -68,7 +68,8 @@ const inputs = {
     thumbnail: document.getElementById('input-thumbnail'),
     searchKw: document.getElementById('input-search-kw'),
     keywords: document.getElementById('input-keywords'),
-    comment: document.getElementById('input-comment')
+    comment: document.getElementById('input-comment'),
+    published: document.getElementById('input-published')
 };
 
 // ============================================================================
@@ -204,7 +205,8 @@ async function fetchData() {
             thumbnail: item['thumbnail'] || '',
             searchKeywords: item['searchKeywords'] || '',
             keywords: item['keywords'] || '', 
-            comment: item['comment'] || ''
+            comment: item['comment'] || '',
+            isPublished: item['isPublished']
         })).sort((a, b) => (b.date || '0000').localeCompare(a.date || '0000'));
 
         filteredData = allData;
@@ -228,8 +230,10 @@ async function sendData(action, data) {
 
     try {
         await fetch(GOOGLE_SHEET_API_URL, {
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST',
+            // ✅ 헤더를 제거하거나 'text/plain'으로 변경합니다.
+            // GAS는 body가 JSON 문자열이면 parse할 수 있습니다.
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
             body: JSON.stringify(payload)
         });
         return true;
@@ -265,8 +269,13 @@ function renderList() {
             displayDate = displayDate.substring(0, 10);
         }
 
+        const opacityClass = (item.isPublished === false || item.isPublished === 'FALSE') ? 'opacity-50' : '';
+        const badge = (item.isPublished === false || item.isPublished === 'FALSE') 
+        ? '<span class="ml-2 text-[10px] bg-gray-600 text-white px-1 rounded">비공개</span>' 
+        : '';
+
         const row = document.createElement('div');
-        row.className = `flex flex-col md:flex-row items-start md:items-center px-4 py-3 border-b border-gray-800 hover:bg-[#1e1e1e] cursor-pointer transition group`;
+        row.className = `flex flex-col md:flex-row items-start md:items-center px-4 py-3 border-b border-gray-800 hover:bg-[#1e1e1e] cursor-pointer transition group ${opacityClass}`;
         const sourceInfo = item.account ? item.account : (item.original || '-');
 
         row.innerHTML = `
@@ -354,7 +363,8 @@ function selectItem(item) {
     inputs.searchKw.value = item.searchKeywords;
     inputs.keywords.value = item.keywords;
     inputs.comment.value = item.comment;
-    
+    inputs.published.checked = (item.isPublished === true || item.isPublished === 'TRUE' || item.isPublished === '');
+
     updateThumbnailPreview(item.thumbnail); // 미리보기 갱신
 
     openEditorModal();
@@ -370,6 +380,7 @@ function resetEditor() {
     saveBtn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
 
     resetFormInputs();
+    inputs.published.checked = true;
     openEditorModal();
 }
 
@@ -389,6 +400,7 @@ saveBtn.addEventListener('click', async () => {
         searchKeywords: inputs.searchKw.value.trim(),
         keywords: inputs.keywords.value.trim(),
         comment: inputs.comment.value.trim(),
+        isPublished: inputs.published.checked,
     };
 
     if (!newData.title || !newData.link) return alert("제목과 링크는 필수입니다.");
