@@ -777,23 +777,8 @@ function setupEventListeners() {
     if (adminBtn) {
         adminBtn.style.display = 'block';
         adminBtn.onclick = () => {
-            const pw = prompt("관리자 비밀번호를 입력하세요:");
-            if (pw) {
-                sessionPassword = pw; 
-                isAdminMode = true;
-                
-                const editBgBtn = document.getElementById('edit-bg-btn');
-                if(editBgBtn) editBgBtn.classList.remove('hidden');
-                
-                if(addTagButton) {
-                    addTagButton.classList.remove('hidden');
-                    addTagButton.innerText = "+ 데이터 추가";
-                    addTagButton.onclick = addNewData;
-                }
-
-                alert("관리자 모드 ON");
-                renderContent(); 
-            }
+            // admin.html 페이지로 이동
+            window.location.href = 'admin.html';
         };
     }
 
