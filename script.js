@@ -3,6 +3,7 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
+// 📌 기본 분류 규칙 (시트 로딩 전 임시 사용)
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
     '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
@@ -20,12 +21,14 @@ function buildReverseLookup() {
 }
 buildReverseLookup();
 
+// 탭 매핑
 const TAB_MAPPING = {
     '입덕가이드': 'must-read', '연말결산': 'must-read', '필독': 'must-read', '월드컵': 'must-read',
     '무대 모음집': 'archive', '라이브 모음집': 'archive', '투샷 모음집': 'archive', 
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
+// 뉴비 탭 순서
 let NEWBIE_COLLECTIONS = [
     { id: '질투', name: '질투' }, 
     { id: '친지마', name: '친지마' }, 
@@ -46,7 +49,7 @@ const ITEMS_PER_PAGE = 24;
 let isAdminMode = false;
 let sessionPassword = null;
 
-// DOM
+// DOM 요소
 const mainAppArea = document.getElementById('main-app-area');
 const scrollTarget = document.getElementById('scroll-target');
 const contentList = document.getElementById('content-list');
@@ -59,15 +62,15 @@ const heroSection = document.getElementById('hero-section');
 const searchInput = document.getElementById('search-input');
 const addTagButton = document.getElementById('add-tag-button');
 
-// 모달
+// 모달 요소
 const editModal = document.getElementById('edit-modal');
-const modalTitle = document.getElementById('modal-title');
+const modalTitle = document.getElementById('modal-title'); // HTML에 id="modal-title" 추가 필요 (없으면 무시)
 const saveEditBtn = document.getElementById('save-edit-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
 let editingLink = null; // null이면 추가 모드, 값이 있으면 수정 모드
 
-// 캘린더
+// 캘린더 DOM
 const calendarSection = document.getElementById('calendar-section');
 const calendarTitleText = document.getElementById('calendar-title-text');
 const calendarTitleBtn = document.getElementById('calendar-title-btn');
@@ -107,7 +110,7 @@ async function initApp() {
         if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
         renderMainTabs();
         refreshView();
-        populateCategoryOptions(); // ⚡ 옵션 채우기
+        populateCategoryOptions();
     }
 
     fetchGoogleSheetData('fast').then(rawData => {
@@ -124,7 +127,7 @@ async function initApp() {
     }
 }
 
-// ✨ [신규] 추천 목록 채우기
+// ✨ [신규] 추천 목록 채우기 (Datalist)
 function populateCategoryOptions() {
     const dataList = document.getElementById('category-list');
     if (!dataList) return;
@@ -156,7 +159,10 @@ async function addNewData() {
     if (!sessionPassword) return;
 
     editingLink = null; // 추가 모드 설정
-    modalTitle.innerText = "데이터 추가";
+    
+    // 모달 제목 변경 (선택사항: HTML에 id가 있다면)
+    const titleElem = document.querySelector('#edit-modal h3');
+    if (titleElem) titleElem.innerText = "데이터 추가";
     
     // 입력창 초기화
     document.getElementById('edit-title').value = '';
@@ -182,7 +188,9 @@ window.openEditModal = function(link) {
     if (!item) return;
 
     editingLink = link; // 수정 모드
-    modalTitle.innerText = "데이터 수정";
+
+    const titleElem = document.querySelector('#edit-modal h3');
+    if (titleElem) titleElem.innerText = "데이터 수정";
 
     // 기존 값 채우기
     document.getElementById('edit-title').value = item.title || '';
@@ -314,7 +322,6 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
-        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
@@ -778,7 +785,7 @@ function setupEventListeners() {
                     addTagButton.onclick = addNewData;
                 }
 
-                alert("관리자 모드 ON (추가/수정/삭제 가능)");
+                alert("관리자 모드 ON");
                 renderContent(); 
             }
         };
