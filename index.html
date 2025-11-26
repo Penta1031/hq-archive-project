@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HQ ORIGINAL 아카이브</title>
-    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
-    
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
     <style>
         body { font-family: 'Pretendard', sans-serif; background-color: #141414; color: #ffffff; }
         .text-red-hq { color: #E50914; }
@@ -19,16 +15,18 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-[#141414] text-white overflow-x-hidden">
     
     <header id="hero-section" class="relative h-[80vh] min-h-[600px] md:h-screen bg-cover bg-[center_top] transition-all duration-700 flex items-end md:items-center pb-12 md:pb-0" 
             style="background-image: url('https://pbs.twimg.com/media/GiAT8aZb0AAKk9j?format=jpg&name=large');">
-        
         <div class="absolute inset-0 bg-gradient-to-t from-[#141414] via-black/50 to-black/30"></div>
         
-        <button id="edit-bg-btn" class="admin-only hidden absolute top-20 left-4 md:top-24 md:left-8 bg-black/60 hover:bg-red-600 text-white text-xs md:text-sm px-3 py-2 rounded-full z-50 backdrop-blur-sm border border-gray-600">
+        <button id="edit-bg-btn" class="hidden absolute top-20 left-4 md:top-24 md:left-8 bg-black/60 hover:bg-red-600 text-white text-xs md:text-sm px-3 py-2 rounded-full z-50 backdrop-blur-sm border border-gray-600">
             <i class="fas fa-image mr-1"></i> 배경 변경
         </button>
 
@@ -37,19 +35,16 @@
                 <h1 id="hero-title" class="text-3xl md:text-5xl font-extrabold text-red-hq tracking-tighter drop-shadow-md">HQ ORIGINAL</h1>
                 <button onclick="editConfig('hero_title')" class="admin-only hidden text-gray-400 hover:text-white"><i class="fas fa-pencil-alt"></i></button>
             </div>
-
             <div class="flex flex-wrap items-center gap-2 mb-4">
                 <h2 id="hero-subtitle" class="text-4xl md:text-7xl font-bold drop-shadow-xl leading-tight max-w-4xl">혚쾌의 모든 순간</h2>
                 <button onclick="editConfig('hero_subtitle')" class="admin-only hidden text-gray-400 hover:text-white text-xl md:text-2xl"><i class="fas fa-pencil-alt"></i></button>
             </div>
-
             <div class="flex items-start gap-2 mb-8 max-w-lg md:max-w-2xl">
                 <p id="hero-desc" class="text-sm md:text-xl text-gray-200 drop-shadow line-clamp-3 md:line-clamp-none">
                     이곳은 혚쾌러들이 놓쳐서는 안 될 모든 순간들을 기록하고 아카이빙하는 공간입니다.
                 </p>
                 <button onclick="editConfig('hero_desc')" class="admin-only hidden text-gray-400 hover:text-white mt-1"><i class="fas fa-pencil-alt"></i></button>
             </div>
-
             <div class="flex gap-4">
                 <button id="watch-button" class="bg-red-hq hover:bg-red-700 text-white font-bold text-base md:text-xl py-3 px-8 md:py-4 md:px-12 rounded flex items-center transition duration-300 transform hover:scale-105 shadow-lg">
                     <i class="fas fa-play mr-2"></i> 시청하기
@@ -67,31 +62,20 @@
 
     <div id="main-app-area" class="min-h-screen bg-[#141414]">
         <div id="scroll-target" class="absolute top-0"></div>
-
         <main class="relative z-20 px-4 md:px-12 pb-20 pt-0 md:pt-12 bg-[#141414]">
             
             <div class="w-full max-w-md mb-4 mt-0 pt-4 md:pt-0 mx-auto md:mx-0">
                 <div class="flex items-center bg-gray-800 border border-gray-700 rounded-full px-4 py-3 focus-within:border-red-600 focus-within:ring-1 focus-within:ring-red-600 transition">
                     <i class="fas fa-search text-gray-400 mr-3 text-lg"></i>
-                    <input type="text" id="search-input" 
-                        class="bg-transparent text-white w-full focus:outline-none placeholder-gray-500 text-sm md:text-base" 
-                        placeholder="제목, 날짜, 키워드로 검색...">
+                    <input type="text" id="search-input" class="bg-transparent text-white w-full focus:outline-none placeholder-gray-500 text-sm md:text-base" placeholder="제목, 날짜, 키워드로 검색...">
                 </div>
             </div>
 
             <nav id="main-tabs" class="flex justify-start gap-4 md:gap-8 mb-2 border-b border-gray-800 pb-2 overflow-x-auto no-scrollbar relative">
-                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="must-read">
-                    혚쾌러 필독 콘텐츠
-                </button>
-                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="newbie">
-                    뉴비 시청 권장 리스트
-                </button>
-                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="archive">
-                    혚쾌의 모든 것들
-                </button>
-                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="calendar">
-                    📅 캘린더
-                </button>
+                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="must-read">혚쾌러 필독 콘텐츠</button>
+                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="newbie">뉴비 시청 권장 리스트</button>
+                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="archive">혚쾌의 모든 것들</button>
+                <button class="main-tab-btn shrink-0 text-base md:text-2xl font-bold px-2 py-2 text-gray-400 hover:text-white transition" data-tab="calendar">📅 캘린더</button>
             </nav>
             
             <div class="md:hidden text-right text-[10px] text-gray-500 mb-1 pr-1 animate-pulse">
@@ -162,65 +146,66 @@
         </footer>
     </div>
 
-    <div id="edit-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-        <div class="bg-gray-900 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700 shadow-2xl">
-            <div class="p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
+    <div id="edit-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-gray-900 rounded-xl w-full max-w-2xl my-8 border border-gray-700 shadow-2xl relative flex flex-col max-h-[90vh]">
+            
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-gray-900 rounded-t-xl sticky top-0 z-10">
                 <h3 id="modal-title" class="text-xl font-bold text-white">데이터 수정</h3>
-                <button id="close-modal-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                <datalist id="category-list">
-                    </datalist>
 
-                <div class="col-span-2">
-                    <label class="block text-gray-400 text-xs mb-1">제목 (A열)</label>
-                    <input type="text" id="edit-title" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto custom-scrollbar">
+                
+                <datalist id="category-list"></datalist>
+
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">제목 (A열)</label>
+                    <input type="text" id="edit-title" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-xs mb-1">날짜 (B열)</label>
-                    <input type="text" id="edit-date" placeholder="YYYY-MM-DD" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">날짜 (B열)</label>
+                    <input type="text" id="edit-date" placeholder="YYYY-MM-DD" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-gray-400 text-xs mb-1">연도 (E열)</label>
-                        <input type="text" id="edit-year" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
+                        <label class="block text-gray-400 text-sm mb-2 font-bold">연도 (E열)</label>
+                        <input type="text" id="edit-year" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                     </div>
                     <div class="flex-1">
-                        <label class="block text-gray-400 text-xs mb-1">월별 (F열)</label>
-                        <input type="text" id="edit-month" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
+                        <label class="block text-gray-400 text-sm mb-2 font-bold">월별 (F열)</label>
+                        <input type="text" id="edit-month" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                     </div>
                 </div>
-                <div class="col-span-2">
-                    <label class="block text-gray-400 text-xs mb-1">링크 (C열 - 저장 시 썸네일 자동 갱신)</label>
-                    <input type="text" id="edit-link" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
-                </div>
-                
-                <div>
-                    <label class="block text-gray-400 text-xs mb-1">카테고리 (I열)</label>
-                    <input type="text" id="edit-category" list="category-list" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none" placeholder="선택 또는 입력">
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">링크 (C열)</label>
+                    <input type="text" id="edit-link" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
+                    <p class="text-xs text-gray-500 mt-1 ml-1">* 저장 시 트위터 썸네일 자동 갱신</p>
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-xs mb-1">키워드 (D열)</label>
-                    <input type="text" id="edit-keywords" list="category-list" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none" placeholder="선택 또는 입력">
-                </div>
-                
-                <div class="col-span-2">
-                    <label class="block text-gray-400 text-xs mb-1">서치 키워드 (H열)</label>
-                    <input type="text" id="edit-search-kw" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">카테고리 (I열)</label>
+                    <input type="text" id="edit-category" list="category-list" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition" placeholder="선택 또는 입력">
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-xs mb-1">원본/계정 (K열)</label>
-                    <input type="text" id="edit-original" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">키워드 (D열)</label>
+                    <input type="text" id="edit-keywords" list="category-list" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition" placeholder="선택 또는 입력">
                 </div>
-                <div class="col-span-2">
-                    <label class="block text-gray-400 text-xs mb-1">코멘트 (J열)</label>
-                    <textarea id="edit-comment" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-2 focus:border-red-600 outline-none h-20"></textarea>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">서치 키워드 (H열)</label>
+                    <input type="text" id="edit-search-kw" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">원본/계정 (K열)</label>
+                    <input type="text" id="edit-original" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">코멘트 (J열)</label>
+                    <textarea id="edit-comment" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none h-24 resize-none transition"></textarea>
                 </div>
             </div>
-            <div class="p-6 border-t border-gray-700 flex justify-end gap-3">
-                <button id="cancel-edit-btn" class="px-4 py-2 rounded text-gray-300 hover:bg-gray-800">취소</button>
-                <button id="save-edit-btn" class="px-6 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-700">저장하기</button>
+
+            <div class="p-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-900 rounded-b-xl sticky bottom-0 z-10">
+                <button id="cancel-edit-btn" class="px-5 py-3 rounded-lg text-gray-300 hover:bg-gray-800 font-medium transition">취소</button>
+                <button id="save-edit-btn" class="px-8 py-3 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg transition transform active:scale-95">저장하기</button>
             </div>
         </div>
     </div>

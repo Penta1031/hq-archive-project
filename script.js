@@ -45,7 +45,7 @@ let currentCollection = 'All';
 let selectedCategories = new Set(); 
 let searchQuery = ''; 
 let currentPage = 1;
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 30; // ⚡ 30개 고정
 let isAdminMode = false;
 let sessionPassword = null;
 
@@ -64,11 +64,11 @@ const addTagButton = document.getElementById('add-tag-button');
 
 // 모달 요소
 const editModal = document.getElementById('edit-modal');
-const modalTitle = document.getElementById('modal-title'); // HTML에 id="modal-title" 추가 필요 (없으면 무시)
+const modalTitle = document.getElementById('modal-title'); 
 const saveEditBtn = document.getElementById('save-edit-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
-let editingLink = null; // null이면 추가 모드, 값이 있으면 수정 모드
+let editingLink = null; 
 
 // 캘린더 DOM
 const calendarSection = document.getElementById('calendar-section');
@@ -127,23 +127,17 @@ async function initApp() {
     }
 }
 
-// ✨ [신규] 추천 목록 채우기 (Datalist)
+// ✨ 추천 목록 채우기 (Datalist)
 function populateCategoryOptions() {
     const dataList = document.getElementById('category-list');
     if (!dataList) return;
     dataList.innerHTML = '';
 
     const allOptions = new Set();
-
-    // 1. CategoryRule의 모든 키워드 추가
     Object.values(CATEGORY_GROUPS).forEach(list => {
         list.forEach(item => allOptions.add(item));
     });
-    
-    // 2. 뉴비 탭 키워드 추가
     NEWBIE_COLLECTIONS.forEach(item => allOptions.add(item.id));
-
-    // 3. 입덕가이드 등 기본 키워드
     ['입덕가이드', '연말결산', '필독', '월드컵'].forEach(item => allOptions.add(item));
 
     Array.from(allOptions).sort().forEach(val => {
@@ -153,18 +147,16 @@ function populateCategoryOptions() {
     });
 }
 
-// ➕ 데이터 추가 (이제 팝업으로 뜸)
+// ➕ 데이터 추가 (모달 팝업)
 async function addNewData() {
     if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
     if (!sessionPassword) return;
 
     editingLink = null; // 추가 모드 설정
     
-    // 모달 제목 변경 (선택사항: HTML에 id가 있다면)
     const titleElem = document.querySelector('#edit-modal h3');
     if (titleElem) titleElem.innerText = "데이터 추가";
     
-    // 입력창 초기화
     document.getElementById('edit-title').value = '';
     document.getElementById('edit-date').value = '';
     document.getElementById('edit-link').value = '';
@@ -188,11 +180,9 @@ window.openEditModal = function(link) {
     if (!item) return;
 
     editingLink = link; // 수정 모드
-
     const titleElem = document.querySelector('#edit-modal h3');
     if (titleElem) titleElem.innerText = "데이터 수정";
 
-    // 기존 값 채우기
     document.getElementById('edit-title').value = item.title || '';
     document.getElementById('edit-date').value = item.date || '';
     document.getElementById('edit-link').value = item.link || '';
@@ -225,7 +215,7 @@ async function saveEdit() {
         searchKeywords: document.getElementById('edit-search-kw').value,
         original: document.getElementById('edit-original').value,
         comment: document.getElementById('edit-comment').value,
-        thumbnail: '' // 추가 시엔 자동 생성 요청
+        thumbnail: '' 
     };
 
     if (!newData.title || !newData.link) {
@@ -236,14 +226,13 @@ async function saveEdit() {
     saveEditBtn.innerText = "저장 중...";
     saveEditBtn.disabled = true;
 
-    // editingLink가 없으면 추가(add), 있으면 수정(update)
     const actionType = editingLink ? 'update' : 'add';
 
     try {
         await sendSheetRequest({
             action: actionType,
             password: sessionPassword,
-            link: editingLink, // 추가일 땐 null
+            link: editingLink,
             data: newData
         });
         alert(editingLink ? "수정되었습니다!" : "추가되었습니다!");
@@ -276,8 +265,6 @@ async function sendSheetRequest(payload) {
     } catch (e) { throw e; }
 }
 
-// ... (중간 로직들: applyCategoryRules, updateDataAndRender, processRawData 등 기존과 동일) ...
-
 function applyCategoryRules(rules) {
     if (rules['뉴비 구성']) {
         NEWBIE_COLLECTIONS = rules['뉴비 구성'].map(item => {
@@ -295,7 +282,7 @@ function applyCategoryRules(rules) {
     }
     buildReverseLookup();
     localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS));
-    populateCategoryOptions(); // ⚡ 규칙 바뀌면 옵션도 갱신
+    populateCategoryOptions(); 
 }
 
 function updateDataAndRender(rawData) {
@@ -766,7 +753,6 @@ function setupEventListeners() {
 
     document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
     
-    // 관리자 로그인
     const adminBtn = document.getElementById('admin-login');
     if (adminBtn) {
         adminBtn.style.display = 'block';
