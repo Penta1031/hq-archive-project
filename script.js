@@ -3,7 +3,7 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-// 기본 분류 규칙 (임시값)
+// 기본 분류 규칙
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
     '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
@@ -71,6 +71,7 @@ const monthSelect = document.getElementById('month-select');
 const applyDateBtn = document.getElementById('apply-date-btn');
 const calendarGrid = document.getElementById('calendar-grid');
 const selectedDateTitle = document.getElementById('selected-date-title');
+
 let calendarDate = new Date();
 let selectedDate = null;
 
@@ -117,44 +118,63 @@ async function initApp() {
     }
 }
 
-// ✨ [수정됨] 옵션 채우기 (SelectBox + DataList)
 function populateCategoryOptions() {
-    const categorySelect = document.getElementById('edit-category'); // Select
-    const keywordDataList = document.getElementById('keyword-list'); // Datalist
+    const categorySelect = document.getElementById('edit-category'); 
+    const keywordDataList = document.getElementById('keyword-list'); 
     
-    if (!categorySelect || !keywordDataList) return;
+    if (categorySelect && keywordDataList) {
+        categorySelect.innerHTML = '<option value="">선택하세요</option>';
+        keywordDataList.innerHTML = '';
+
+        const allOptions = new Set();
+        Object.values(CATEGORY_GROUPS).forEach(list => {
+            list.forEach(item => allOptions.add(item));
+        });
+        NEWBIE_COLLECTIONS.forEach(item => allOptions.add(item.id));
+        ['입덕가이드', '연말결산', '필독', '월드컵'].forEach(item => allOptions.add(item));
+
+        Array.from(allOptions).sort().forEach(val => {
+            const opt1 = document.createElement('option');
+            opt1.value = val;
+            opt1.innerText = val;
+            categorySelect.appendChild(opt1);
+
+            const opt2 = document.createElement('option');
+            opt2.value = val;
+            keywordDataList.appendChild(opt2);
+        });
+    }
+
+    const yearList = document.createElement('datalist');
+    yearList.id = 'year-list';
+    const currentYear = new Date().getFullYear();
+    for (let y = 2015; y <= currentYear + 1; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        yearList.appendChild(opt);
+    }
+    const oldYearList = document.getElementById('year-list');
+    if (oldYearList) oldYearList.remove();
+    document.body.appendChild(yearList);
     
-    // 초기화
-    categorySelect.innerHTML = '<option value="">선택하세요</option>';
-    keywordDataList.innerHTML = '';
-
-    const allOptions = new Set();
-
-    // 1. 아카이브 키워드 수집
-    Object.values(CATEGORY_GROUPS).forEach(list => {
-        list.forEach(item => allOptions.add(item));
-    });
-    // 2. 뉴비 탭 키워드 수집
-    NEWBIE_COLLECTIONS.forEach(item => allOptions.add(item.id));
-    // 3. 기타 키워드
-    ['입덕가이드', '연말결산', '필독', '월드컵'].forEach(item => allOptions.add(item));
-
-    // 정렬 후 삽입
-    Array.from(allOptions).sort().forEach(val => {
-        // 카테고리용 (Select)
-        const opt1 = document.createElement('option');
-        opt1.value = val;
-        opt1.innerText = val;
-        categorySelect.appendChild(opt1);
-
-        // 키워드용 (Datalist)
-        const opt2 = document.createElement('option');
-        opt2.value = val;
-        keywordDataList.appendChild(opt2);
-    });
+    const monthList = document.createElement('datalist');
+    monthList.id = 'month-list';
+    for (let m = 1; m <= 12; m++) {
+        const opt = document.createElement('option');
+        opt.value = String(m).padStart(2, '0') + '월';
+        monthList.appendChild(opt);
+    }
+    const oldMonthList = document.getElementById('month-list');
+    if (oldMonthList) oldMonthList.remove();
+    document.body.appendChild(monthList);
+    
+    const yearInput = document.getElementById('edit-year');
+    if (yearInput) yearInput.setAttribute('list', 'year-list');
+    
+    const monthInput = document.getElementById('edit-month');
+    if (monthInput) monthInput.setAttribute('list', 'month-list');
 }
 
-// ➕ 추가
 async function addNewData() {
     if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
     if (!sessionPassword) return;
@@ -163,13 +183,12 @@ async function addNewData() {
     const titleElem = document.querySelector('#edit-modal h3');
     if (titleElem) titleElem.innerText = "데이터 추가";
     
-    // 초기화
     document.getElementById('edit-title').value = '';
     document.getElementById('edit-date').value = '';
     document.getElementById('edit-link').value = '';
     document.getElementById('edit-year').value = '';
     document.getElementById('edit-month').value = '';
-    document.getElementById('edit-category').value = ''; // Select 초기화
+    document.getElementById('edit-category').value = ''; 
     document.getElementById('edit-keywords').value = '';
     document.getElementById('edit-search-kw').value = '';
     document.getElementById('edit-original').value = '';
@@ -178,7 +197,6 @@ async function addNewData() {
     editModal.classList.remove('hidden');
 }
 
-// ✏️ 수정 모달
 window.openEditModal = function(link) {
     if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
     if (!sessionPassword) return;
@@ -186,7 +204,7 @@ window.openEditModal = function(link) {
     const item = contentsData.find(i => i.link === link);
     if (!item) return;
 
-    editingLink = link;
+    editingLink = link; 
     const titleElem = document.querySelector('#edit-modal h3');
     if (titleElem) titleElem.innerText = "데이터 수정";
 
@@ -195,7 +213,7 @@ window.openEditModal = function(link) {
     document.getElementById('edit-link').value = item.link || '';
     document.getElementById('edit-year').value = item.year || '';
     document.getElementById('edit-month').value = item.month || '';
-    document.getElementById('edit-category').value = item.rawCategoryStr || ''; // Select 값 설정
+    document.getElementById('edit-category').value = item.rawCategoryStr || ''; 
     document.getElementById('edit-keywords').value = item.rawKeywordsStr || '';
     document.getElementById('edit-search-kw').value = item.searchKeywords || '';
     document.getElementById('edit-original').value = item.original || '';
@@ -209,7 +227,6 @@ function closeEditModal() {
     editingLink = null;
 }
 
-// 💾 저장
 async function saveEdit() {
     const newData = {
         title: document.getElementById('edit-title').value,
@@ -288,7 +305,7 @@ function applyCategoryRules(rules) {
     }
     buildReverseLookup();
     localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS));
-    populateCategoryOptions(); // 규칙 갱신 시 옵션도 갱신
+    populateCategoryOptions(); 
 }
 
 function updateDataAndRender(rawData) {
@@ -311,18 +328,22 @@ function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
         if (!title) return null;
+
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
-        const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
+        
+        // ⚡ 키 매핑 수정됨 (User 요청 반영)
+        const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim(); // I열
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
-        const year = (item['연도'] || item['year'] || '').trim();
-        const month = (item['월별'] || item['month'] || '').replace('월', '').trim();
-        const searchKw = (item['서치 키워드'] || item['searchKeywords'] || '').trim();
-        const rawKeywordsStr = (item['키워드'] || item['keywords'] || '').trim();
+
+        const year = (item['연도'] || item['year'] || '').trim(); // E열
+        const month = (item['월별'] || item['month'] || '').replace('월', '').trim(); // H열
+        const searchKw = (item['서치 키워드'] || item['searchKeywords'] || '').trim(); // D열
+        const rawKeywordsStr = (item['키워드'] || item['keywords'] || '').trim(); // K열
         const keywords = rawKeywordsStr;
-        const comment = (item['코멘트'] || item['comment'] || '').trim();
-        const original = (item['원본'] || item['original'] || '').trim();
+        const comment = (item['코멘트'] || item['comment'] || '').trim(); // J열
+        const original = (item['원본'] || item['original'] || '').trim(); // G열
 
         let standardDate = '';
         let dateDisplay = rawDate;
@@ -371,14 +392,6 @@ function processRawData(data) {
             rawCategoryStr, rawKeywordsStr, year, month, comment, original
         };
     }).filter(item => item !== null);
-}
-
-async function fetchGoogleSheetData(mode = 'full') {
-    try {
-        const url = `${GOOGLE_SHEET_API_URL}?mode=${mode}`;
-        const response = await fetch(url);
-        return await response.json();
-    } catch (error) { return null; }
 }
 
 function refreshView() {
@@ -443,7 +456,6 @@ function renderCalendar() {
     for (let i = 1; i <= lastDate; i++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const cell = document.createElement('div');
-        
         const hasData = contentsData.some(item => item.standardDate === dateStr);
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -499,7 +511,10 @@ function renderCollections() {
     subCategoryList.innerHTML = '';
     let listToShow = ['All']; 
 
-    if (currentMainTab === 'archive') {
+    if (currentMainTab === 'total_archive') {
+        // ⚡ Archive 탭: 필터 없음 (전체보기 하나만 둠)
+        listToShow = [{id:'All', name:'전체 보기'}];
+    } else if (currentMainTab === 'archive') {
         listToShow = [{id:'All', name:'전체 보기'}, ...Object.keys(CATEGORY_GROUPS).map(k => ({id:k, name:k}))];
     } else if (currentMainTab === 'newbie') {
         listToShow = [{id:'All', name:'전체 보기'}, ...NEWBIE_COLLECTIONS];
@@ -530,7 +545,7 @@ function renderCollections() {
 }
 
 function renderCategories() {
-    if (currentMainTab === 'calendar') return;
+    if (currentMainTab === 'calendar' || currentMainTab === 'total_archive') return;
     keywordFilterSection.innerHTML = '';
 
     if (currentMainTab === 'newbie' && currentCollection === '모음집') {
@@ -595,7 +610,12 @@ function renderContent() {
             const targetMonth = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}`;
             result = result.filter(item => item.standardDate && item.standardDate.startsWith(targetMonth));
         }
-    } else {
+    } 
+    // ⚡ [추가] Archive 탭은 필터 없이 전체 노출
+    else if (currentMainTab === 'total_archive') {
+        result = contentsData; // 전체 데이터
+    }
+    else {
         result = result.filter(item => item.mainTab === currentMainTab);
         if (currentCollection !== 'All') {
             result = result.filter(item => item.collection === currentCollection);

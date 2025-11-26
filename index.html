@@ -149,9 +149,7 @@
                 <button id="close-modal-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto custom-scrollbar">
-                
                 <datalist id="keyword-list"></datalist>
-
                 <div class="col-span-1 md:col-span-2">
                     <label class="block text-gray-400 text-sm mb-2 font-bold">제목 (A열)</label>
                     <input type="text" id="edit-title" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
@@ -166,34 +164,30 @@
                         <input type="text" id="edit-year" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                     </div>
                     <div class="flex-1">
-                        <label class="block text-gray-400 text-sm mb-2 font-bold">월별 (F열)</label>
+                        <label class="block text-gray-400 text-sm mb-2 font-bold">월별 (H열)</label>
                         <input type="text" id="edit-month" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                     </div>
                 </div>
                 <div class="col-span-1 md:col-span-2">
                     <label class="block text-gray-400 text-sm mb-2 font-bold">링크 (C열)</label>
                     <input type="text" id="edit-link" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
-                    <p class="text-xs text-gray-500 mt-1 ml-1">* 저장 시 트위터 썸네일 자동 갱신</p>
                 </div>
-                
                 <div>
                     <label class="block text-gray-400 text-sm mb-2 font-bold">카테고리 (I열)</label>
                     <select id="edit-category" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition appearance-none">
                         <option value="">선택하세요</option>
-                        </select>
+                    </select>
                 </div>
-
                 <div>
-                    <label class="block text-gray-400 text-sm mb-2 font-bold">키워드 (D열)</label>
-                    <input type="text" id="edit-keywords" list="keyword-list" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition" placeholder="입력 또는 선택">
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">키워드 (K열)</label>
+                    <input type="text" id="edit-keywords" list="keyword-list" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition" placeholder="선택 또는 입력">
                 </div>
-                
                 <div class="col-span-1 md:col-span-2">
-                    <label class="block text-gray-400 text-sm mb-2 font-bold">서치 키워드 (H열)</label>
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">서치 키워드 (D열)</label>
                     <input type="text" id="edit-search-kw" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm mb-2 font-bold">원본/계정 (K열)</label>
+                    <label class="block text-gray-400 text-sm mb-2 font-bold">원본/계정 (G열)</label>
                     <input type="text" id="edit-original" class="w-full bg-gray-800 text-white border border-gray-700 rounded-lg p-3 focus:border-red-600 outline-none transition">
                 </div>
                 <div class="col-span-1 md:col-span-2">
