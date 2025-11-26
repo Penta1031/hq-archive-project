@@ -2,9 +2,7 @@
 // ⚙️ 설정 영역
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
-// ❌ ADMIN_PASSWORD 변수 삭제됨 (코드에 비번 안 남김)
 
-// 📌 기본 분류 규칙
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
     '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
@@ -46,9 +44,9 @@ let searchQuery = '';
 let currentPage = 1;
 const ITEMS_PER_PAGE = 24;
 let isAdminMode = false;
-let sessionPassword = null; // 🔐 입력한 비밀번호를 임시 저장할 변수
+let sessionPassword = null;
 
-// DOM 요소
+// DOM
 const mainAppArea = document.getElementById('main-app-area');
 const scrollTarget = document.getElementById('scroll-target');
 const contentList = document.getElementById('content-list');
@@ -61,7 +59,15 @@ const heroSection = document.getElementById('hero-section');
 const searchInput = document.getElementById('search-input');
 const addTagButton = document.getElementById('add-tag-button');
 
-// 캘린더 DOM
+// 모달
+const editModal = document.getElementById('edit-modal');
+const modalTitle = document.getElementById('modal-title');
+const saveEditBtn = document.getElementById('save-edit-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
+const closeModalBtn = document.getElementById('close-modal-btn');
+let editingLink = null; // null이면 추가 모드, 값이 있으면 수정 모드
+
+// 캘린더
 const calendarSection = document.getElementById('calendar-section');
 const calendarTitleText = document.getElementById('calendar-title-text');
 const calendarTitleBtn = document.getElementById('calendar-title-btn');
@@ -101,6 +107,7 @@ async function initApp() {
         if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
         renderMainTabs();
         refreshView();
+        populateCategoryOptions(); // ⚡ 옵션 채우기
     }
 
     fetchGoogleSheetData('fast').then(rawData => {
@@ -117,92 +124,151 @@ async function initApp() {
     }
 }
 
-// ➕ 데이터 추가 함수
+// ✨ [신규] 추천 목록 채우기
+function populateCategoryOptions() {
+    const dataList = document.getElementById('category-list');
+    if (!dataList) return;
+    dataList.innerHTML = '';
+
+    const allOptions = new Set();
+
+    // 1. CategoryRule의 모든 키워드 추가
+    Object.values(CATEGORY_GROUPS).forEach(list => {
+        list.forEach(item => allOptions.add(item));
+    });
+    
+    // 2. 뉴비 탭 키워드 추가
+    NEWBIE_COLLECTIONS.forEach(item => allOptions.add(item.id));
+
+    // 3. 입덕가이드 등 기본 키워드
+    ['입덕가이드', '연말결산', '필독', '월드컵'].forEach(item => allOptions.add(item));
+
+    Array.from(allOptions).sort().forEach(val => {
+        const opt = document.createElement('option');
+        opt.value = val;
+        dataList.appendChild(opt);
+    });
+}
+
+// ➕ 데이터 추가 (이제 팝업으로 뜸)
 async function addNewData() {
-    // 🔐 작업을 할 때마다 비밀번호를 물어보거나, 로그인 시 저장한 비밀번호 사용
     if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
     if (!sessionPassword) return;
 
-    const title = prompt("제목을 입력하세요:");
-    if (!title) return;
+    editingLink = null; // 추가 모드 설정
+    modalTitle.innerText = "데이터 추가";
     
-    const link = prompt("링크(URL)를 입력하세요:");
-    if (!link) return;
+    // 입력창 초기화
+    document.getElementById('edit-title').value = '';
+    document.getElementById('edit-date').value = '';
+    document.getElementById('edit-link').value = '';
+    document.getElementById('edit-year').value = '';
+    document.getElementById('edit-month').value = '';
+    document.getElementById('edit-category').value = '';
+    document.getElementById('edit-keywords').value = '';
+    document.getElementById('edit-search-kw').value = '';
+    document.getElementById('edit-original').value = '';
+    document.getElementById('edit-comment').value = '';
 
-    const date = prompt("날짜를 입력하세요 (YYYY-MM-DD):");
-    const category = prompt("카테고리(I열)를 입력하세요 (예: 콘서트):");
-    const keywords = prompt("키워드(D열)를 입력하세요 (선택사항):", "");
-    const thumbnail = prompt("썸네일 URL (선택사항 - 비워두면 자동):", "");
+    editModal.classList.remove('hidden');
+}
 
-    if (confirm(`[확인]\n제목: ${title}\n링크: ${link}\n저장하시겠습니까?`)) {
+// ✏️ 수정 모달 열기
+window.openEditModal = function(link) {
+    if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
+    if (!sessionPassword) return;
+
+    const item = contentsData.find(i => i.link === link);
+    if (!item) return;
+
+    editingLink = link; // 수정 모드
+    modalTitle.innerText = "데이터 수정";
+
+    // 기존 값 채우기
+    document.getElementById('edit-title').value = item.title || '';
+    document.getElementById('edit-date').value = item.date || '';
+    document.getElementById('edit-link').value = item.link || '';
+    document.getElementById('edit-year').value = item.year || '';
+    document.getElementById('edit-month').value = item.month || '';
+    document.getElementById('edit-category').value = item.rawCategoryStr || '';
+    document.getElementById('edit-keywords').value = item.rawKeywordsStr || '';
+    document.getElementById('edit-search-kw').value = item.searchKeywords || '';
+    document.getElementById('edit-original').value = item.original || '';
+    document.getElementById('edit-comment').value = item.comment || '';
+
+    editModal.classList.remove('hidden');
+};
+
+function closeEditModal() {
+    editModal.classList.add('hidden');
+    editingLink = null;
+}
+
+// 💾 저장 (추가/수정 공통)
+async function saveEdit() {
+    const newData = {
+        title: document.getElementById('edit-title').value,
+        date: document.getElementById('edit-date').value,
+        link: document.getElementById('edit-link').value,
+        year: document.getElementById('edit-year').value,
+        month: document.getElementById('edit-month').value,
+        category: document.getElementById('edit-category').value,
+        keywords: document.getElementById('edit-keywords').value,
+        searchKeywords: document.getElementById('edit-search-kw').value,
+        original: document.getElementById('edit-original').value,
+        comment: document.getElementById('edit-comment').value,
+        thumbnail: '' // 추가 시엔 자동 생성 요청
+    };
+
+    if (!newData.title || !newData.link) {
+        alert("제목과 링크는 필수입니다.");
+        return;
+    }
+
+    saveEditBtn.innerText = "저장 중...";
+    saveEditBtn.disabled = true;
+
+    // editingLink가 없으면 추가(add), 있으면 수정(update)
+    const actionType = editingLink ? 'update' : 'add';
+
+    try {
         await sendSheetRequest({
-            action: 'add',
-            password: sessionPassword, // 입력받은 비밀번호 전송
-            data: {
-                title: title,
-                link: link,
-                date: date,
-                category: category,
-                keywords: keywords,
-                thumbnail: thumbnail
-            }
+            action: actionType,
+            password: sessionPassword,
+            link: editingLink, // 추가일 땐 null
+            data: newData
         });
-        alert("요청 완료. (비밀번호가 틀렸으면 반영되지 않습니다)");
+        alert(editingLink ? "수정되었습니다!" : "추가되었습니다!");
         location.reload();
+    } catch (e) {
+        alert("오류 발생: " + e);
+        saveEditBtn.innerText = "저장하기";
+        saveEditBtn.disabled = false;
     }
 }
 
-// ✏️ 수정 함수
-async function editItem(item) {
-    if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
-    if (!sessionPassword) return;
-
-    const newTitle = prompt("제목 수정:", item.title);
-    if (newTitle === null) return;
-    const newDate = prompt("날짜 수정 (YYYY-MM-DD):", item.date);
-    if (newDate === null) return;
-    const newCategory = prompt("카테고리(I열) 수정:", item.rawCategoryStr);
-    if (newCategory === null) return;
-    const newKeywords = prompt("키워드(D열) 수정:", item.rawKeywordsStr);
-    if (newKeywords === null) return;
-
-    await sendSheetRequest({
-        action: 'update',
-        link: item.link,
-        password: sessionPassword,
-        data: { title: newTitle, date: newDate, category: newCategory, keywords: newKeywords }
-    });
-    alert("수정 요청 완료.");
-    location.reload();
-}
-
-// 🗑️ 삭제 함수
+// 🗑️ 삭제
 async function deleteItem(link) {
-    if (!confirm("정말 삭제하시겠습니까? (복구 불가)")) return;
-    
+    if (!confirm("정말 삭제하시겠습니까?")) return;
     if (!sessionPassword) sessionPassword = prompt("관리자 비밀번호를 입력하세요:");
     if (!sessionPassword) return;
 
     await sendSheetRequest({ action: 'delete', link: link, password: sessionPassword });
-    alert("삭제 요청 완료.");
+    alert("삭제되었습니다.");
     location.reload();
 }
 
-// API 요청 공통
 async function sendSheetRequest(payload) {
     try {
         await fetch(GOOGLE_SHEET_API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
+            method: 'POST', mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-    } catch (e) {
-        alert("오류 발생: " + e);
-    }
+    } catch (e) { throw e; }
 }
 
-// ... (중간 로직들은 동일) ...
+// ... (중간 로직들: applyCategoryRules, updateDataAndRender, processRawData 등 기존과 동일) ...
 
 function applyCategoryRules(rules) {
     if (rules['뉴비 구성']) {
@@ -221,6 +287,7 @@ function applyCategoryRules(rules) {
     }
     buildReverseLookup();
     localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS));
+    populateCategoryOptions(); // ⚡ 규칙 바뀌면 옵션도 갱신
 }
 
 function updateDataAndRender(rawData) {
@@ -247,13 +314,17 @@ function processRawData(data) {
         const link = (item['링크'] || item['link'] || '').trim();
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
+        
         const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim();
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
-        const year = (item['연도'] || '').trim();
-        const month = (item['월별'] || '').replace('월', '').trim();
-        const searchKw = (item['서치 키워드'] || '').trim();
-        const keywords = (item['키워드'] || '').trim();
+        const year = (item['연도'] || item['year'] || '').trim();
+        const month = (item['월별'] || item['month'] || '').replace('월', '').trim();
+        const searchKw = (item['서치 키워드'] || item['searchKeywords'] || '').trim();
+        const rawKeywordsStr = (item['키워드'] || item['keywords'] || '').trim();
+        const keywords = rawKeywordsStr;
+        const comment = (item['코멘트'] || item['comment'] || '').trim();
+        const original = (item['원본'] || item['original'] || '').trim();
 
         let standardDate = '';
         let dateDisplay = rawDate;
@@ -296,16 +367,11 @@ function processRawData(data) {
 
         return {
             title, link, date: rawDate,
-            standardDate: standardDate,
-            mainTab: targetTab,
-            collection: collectionName,
-            categoryList: categoryList,
-            thumbnail: thumb,
-            dateDisplay: dateDisplay,
-            searchKeywords: searchKw,
-            displayKeywords: keywords,
-            rawCategoryStr: rawCategoryStr,
-            rawKeywordsStr: keywords
+            standardDate, mainTab: targetTab, collection: collectionName,
+            categoryList, thumbnail: thumb, dateDisplay,
+            searchKeywords: searchKw, displayKeywords: keywords,
+            rawCategoryStr, rawKeywordsStr,
+            year, month, comment, original
         };
     }).filter(item => item !== null);
 }
@@ -524,7 +590,6 @@ function renderCategories() {
     });
 }
 
-// ⚡ [수정됨] 렌더링 (관리자 모드일 때 수정/삭제 버튼 노출)
 function renderContent() {
     contentList.innerHTML = '';
     let result = contentsData;
@@ -585,14 +650,13 @@ function renderContent() {
         if (item.searchKeywords) keywordBadges += `<span class="text-gray-400 mr-1">#${item.searchKeywords}</span>`;
         if (item.displayKeywords) keywordBadges += `<span class="text-gray-500">#${item.displayKeywords}</span>`;
 
-        // 관리자 버튼 (수정/삭제)
         let adminBtns = '';
         if (isAdminMode) {
             const safeLink = item.link.replace(/'/g, "\\'"); 
             adminBtns = `
                 <div class="absolute top-2 right-2 flex gap-1 z-20">
                     <button class="bg-blue-600 text-white p-1.5 rounded shadow hover:bg-blue-700 text-xs"
-                        onclick="event.stopPropagation(); editItemByLink('${safeLink}')">
+                        onclick="event.stopPropagation(); openEditModal('${safeLink}')">
                         <i class="fas fa-pencil-alt"></i>
                     </button>
                     <button class="bg-red-600 text-white p-1.5 rounded shadow hover:bg-red-700 text-xs"
@@ -626,12 +690,6 @@ function renderContent() {
     if (endIndex >= result.length) loadMoreContainer.classList.add('hidden');
     else loadMoreContainer.classList.remove('hidden');
 }
-
-// 헬퍼: 링크로 아이템 찾아서 수정 호출
-window.editItemByLink = function(link) {
-    const item = contentsData.find(i => i.link === link);
-    if (item) editItem(item);
-};
 
 function setupEventListeners() {
     const watchBtn = document.getElementById('watch-button');
@@ -701,22 +759,18 @@ function setupEventListeners() {
 
     document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
     
-    // 관리자 로그인 복구
+    // 관리자 로그인
     const adminBtn = document.getElementById('admin-login');
     if (adminBtn) {
         adminBtn.style.display = 'block';
         adminBtn.onclick = () => {
-            const pw = prompt("관리자 비밀번호:");
-            // 서버 확인 과정 없이 일단 UI상으로 관리자 모드 진입 (실제 삭제 시 서버에서 비번 재확인함)
+            const pw = prompt("관리자 비밀번호를 입력하세요:");
             if (pw) {
-                sessionPassword = pw; // 세션에 저장
+                sessionPassword = pw; 
                 isAdminMode = true;
                 
                 const editBgBtn = document.getElementById('edit-bg-btn');
-                if(editBgBtn) {
-                    editBgBtn.classList.remove('hidden');
-                    document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-                }
+                if(editBgBtn) editBgBtn.classList.remove('hidden');
                 
                 if(addTagButton) {
                     addTagButton.classList.remove('hidden');
@@ -730,7 +784,6 @@ function setupEventListeners() {
         };
     }
 
-    // 배경 수정
     const editBgBtn = document.getElementById('edit-bg-btn');
     if(editBgBtn) {
         editBgBtn.onclick = async () => {
@@ -744,10 +797,14 @@ function setupEventListeners() {
         };
     }
     
+    // 모달 이벤트
+    if(saveEditBtn) saveEditBtn.onclick = saveEdit;
+    if(cancelEditBtn) cancelEditBtn.onclick = closeEditModal;
+    if(closeModalBtn) closeModalBtn.onclick = closeEditModal;
+    
     loadMoreButton.onclick = () => { currentPage++; renderContent(); };
 }
 
-// Config 수정 (관리자)
 window.editConfig = async function(key) { 
     if (!isAdminMode) return; 
     let currentVal = document.getElementById(key.replace('_', '-')).innerText;
