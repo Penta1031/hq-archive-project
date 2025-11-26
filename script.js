@@ -514,4 +514,101 @@ function renderContent() {
                 ${thumbnailHtml}
                 <div class="p-2">
                     <div class="flex items-center justify-between mb-1">
-                        <span class="text-[9px] font-bold text-red-500
+                        <span class="text-[9px] font-bold text-red-500 border border-red-500 px-1 rounded tracking-tight truncate max-w-[70px]">${item.collection}</span>
+                        <span class="text-[9px] text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">${item.dateDisplay || '-'}</span>
+                    </div>
+                    <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-tight line-clamp-2 group-hover:text-white mb-1">${item.title}</h3>
+                    <div class="text-[9px] leading-tight line-clamp-1">
+                        ${keywordBadges}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    contentList.innerHTML = htmlBuffer;
+    
+    if (endIndex >= result.length) loadMoreContainer.classList.add('hidden');
+    else loadMoreContainer.classList.remove('hidden');
+}
+
+function setupEventListeners() {
+    const watchBtn = document.getElementById('watch-button');
+    if(watchBtn) {
+        watchBtn.onclick = () => {
+            const searchContainer = document.getElementById('search-input').parentElement.parentElement;
+            if (searchContainer) {
+                const y = searchContainer.getBoundingClientRect().top + window.pageYOffset - 20;
+                window.scrollTo({top: y, behavior: 'smooth'});
+            } else {
+                scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+    }
+
+    if(searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.trim();
+            currentPage = 1;
+            renderContent();
+        });
+    }
+
+    document.getElementById('prev-month').onclick = () => {
+        calendarDate.setMonth(calendarDate.getMonth() - 1);
+        renderCalendar();
+        renderContent();
+    };
+    document.getElementById('next-month').onclick = () => {
+        calendarDate.setMonth(calendarDate.getMonth() + 1);
+        renderCalendar();
+        renderContent();
+    };
+    document.getElementById('today-btn').onclick = () => {
+        calendarDate = new Date();
+        selectedDate = new Date().toISOString().slice(0, 10);
+        renderCalendar();
+        renderContent();
+    };
+
+    if(calendarTitleBtn) {
+        calendarTitleBtn.onclick = (e) => {
+            e.stopPropagation();
+            datePicker.classList.toggle('hidden');
+            datePicker.classList.toggle('flex');
+        };
+    }
+
+    if(applyDateBtn) {
+        applyDateBtn.onclick = () => {
+            const y = parseInt(yearSelect.value);
+            const m = parseInt(monthSelect.value);
+            calendarDate = new Date(y, m, 1);
+            datePicker.classList.add('hidden');
+            datePicker.classList.remove('flex');
+            renderCalendar();
+            renderContent();
+        };
+    }
+
+    document.addEventListener('click', (e) => {
+        if (datePicker && !datePicker.contains(e.target) && !calendarTitleBtn.contains(e.target)) {
+            datePicker.classList.add('hidden');
+            datePicker.classList.remove('flex');
+        }
+    });
+
+    document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
+    
+    loadMoreButton.onclick = () => { currentPage++; renderContent(); };
+}
+
+function applySiteConfig(config) {
+    if (!config) return;
+    if (config.hero_title) document.getElementById('hero-title').innerText = config.hero_title;
+    if (config.hero_subtitle) document.getElementById('hero-subtitle').innerText = config.hero_subtitle;
+    if (config.hero_desc) document.getElementById('hero-desc').innerText = config.hero_desc;
+    if (config.hero_bg) heroSection.style.backgroundImage = `url('${config.hero_bg}')`;
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
