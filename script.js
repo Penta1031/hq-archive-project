@@ -3,7 +3,7 @@
 // ============================================================================
 const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbx0JfRUmY39YAVaRhajoX21zQ4ld1S3XYJMd-8-u6oUhG7QTisbl5hGmgCrPZZuIVsx/exec';
 
-// 📌 기본 분류 규칙
+// 📌 기본 분류 규칙 (시트 로딩 전 임시값)
 let CATEGORY_GROUPS = {
     '무대 모음집': ['콘서트', '해투', '페스티벌', '버스킹', '음방', '커버', '쇼케이스', '퇴근길', '뮤비'],
     '라이브 모음집': ['우얘합', '하루의마무리', '라이브'],
@@ -28,7 +28,7 @@ const TAB_MAPPING = {
     '메시지 모음집': 'archive', '미디어 모음집': 'archive'
 };
 
-// 뉴비 탭 순서
+// 뉴비 탭 순서 (기본값)
 let NEWBIE_COLLECTIONS = [
     { id: '질투', name: '질투' }, 
     { id: '친지마', name: '친지마' }, 
@@ -81,7 +81,8 @@ async function initApp() {
     setupEventListeners();
     initDatePicker();
 
-    const cachedRules = localStorage.getItem('hq_archive_rules');
+    // 1. 캐시된 규칙 확인 (버전 _v2로 변경)
+    const cachedRules = localStorage.getItem('hq_archive_rules_v2');
     if (cachedRules) {
         try {
             const rules = JSON.parse(cachedRules);
@@ -89,33 +90,40 @@ async function initApp() {
         } catch(e) {}
     }
 
-    const cachedData = localStorage.getItem('hq_archive_data');
-    const cachedConfig = localStorage.getItem('hq_archive_config');
+    // 2. 캐시된 데이터 로드 (버전 _v2로 변경 -> 모바일 강제 갱신)
+    const cachedData = localStorage.getItem('hq_archive_data_v2');
+    const cachedConfig = localStorage.getItem('hq_archive_config_v2');
 
     if (cachedData) {
         const parsedData = JSON.parse(cachedData);
         contentsData = processRawData(parsedData);
         contentsData.sort((a, b) => dateSort(a, b));
         if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
+        
         renderMainTabs();
         refreshView();
     }
 
+    // 3. 빠른 로딩 (50개)
     fetchGoogleSheetData('fast').then(rawData => {
         if (rawData && contentsData.length === 0) {
             updateDataAndRender(rawData);
         }
     });
 
+    // 4. 전체 로딩
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
         updateDataAndRender(fullRawData);
-        localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
-        localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
+        // 저장 키 이름도 _v2로 통일
+        localStorage.setItem('hq_archive_data_v2', JSON.stringify(fullRawData.data));
+        localStorage.setItem('hq_archive_config_v2', JSON.stringify(fullRawData.config));
     }
 }
 
+// 규칙 적용 함수
 function applyCategoryRules(rules) {
+    // 뉴비 구성 처리
     if (rules['뉴비 구성']) {
         NEWBIE_COLLECTIONS = rules['뉴비 구성'].map(item => {
             if (typeof item === 'string' && item.includes(':')) {
@@ -131,12 +139,13 @@ function applyCategoryRules(rules) {
         delete rules['뉴비 구성'];
     }
 
+    // 아카이브 규칙 적용
     if (Object.keys(rules).length > 0) {
         CATEGORY_GROUPS = rules;
     }
     
     buildReverseLookup();
-    localStorage.setItem('hq_archive_rules', JSON.stringify(CATEGORY_GROUPS));
+    localStorage.setItem('hq_archive_rules_v2', JSON.stringify(CATEGORY_GROUPS));
 }
 
 function updateDataAndRender(rawData) {
@@ -195,6 +204,7 @@ function processRawData(data) {
         let collectionName = '기타';
         let targetTab = 'archive';
 
+        // 1. 필독 체크
         if (categoryList.some(c => ['입덕가이드', '연말결산', '필독', '월드컵'].includes(c))) {
             targetTab = 'must-read';
             if (categoryList.includes('입덕가이드')) collectionName = '입덕가이드';
@@ -202,11 +212,13 @@ function processRawData(data) {
             else if (categoryList.includes('월드컵')) collectionName = '월드컵';
             else collectionName = '필독';
         }
+        // 2. 뉴비 체크
         else if (categoryList.some(c => NEWBIE_COLLECTIONS.some(nc => nc.id === c) || ['뉴비', '혚쾌 키워드'].includes(c))) {
             targetTab = 'newbie';
             const matchObj = NEWBIE_COLLECTIONS.find(nc => categoryList.includes(nc.id));
             collectionName = matchObj ? matchObj.id : '기타';
         }
+        // 3. 아카이브
         else {
             targetTab = 'archive';
             for (const cat of categoryList) {
@@ -295,6 +307,10 @@ function renderCalendar() {
     
     calendarGrid.innerHTML = '';
 
+    // 오늘 날짜 (KST)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     for (let i = 0; i < firstDay; i++) {
         calendarGrid.appendChild(document.createElement('div'));
     }
@@ -304,8 +320,6 @@ function renderCalendar() {
         const cell = document.createElement('div');
         
         const hasData = contentsData.some(item => item.standardDate === dateStr);
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const isToday = (todayStr === dateStr);
         const isSelected = selectedDate === dateStr;
 
@@ -333,13 +347,11 @@ function renderCalendar() {
     }
 }
 
-// ⚡ [수정됨] 연도 선택 2017년부터 시작
 function initDatePicker() {
     if(!yearSelect || !monthSelect) return;
     const currentYear = new Date().getFullYear();
     yearSelect.innerHTML = '';
-    
-    // 2017년부터 내년까지 생성
+    // 2017년부터
     for (let y = 2017; y <= currentYear + 1; y++) {
         const opt = document.createElement('option');
         opt.value = y;
@@ -347,7 +359,6 @@ function initDatePicker() {
         if(y === currentYear) opt.selected = true;
         yearSelect.appendChild(opt);
     }
-
     monthSelect.innerHTML = '';
     for (let m = 1; m <= 12; m++) {
         const opt = document.createElement('option');
@@ -600,6 +611,13 @@ function setupEventListeners() {
 
     document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
     
+    // 관리자 기능 제거됨
+    const adminBtn = document.getElementById('admin-login');
+    if(adminBtn) adminBtn.style.display = 'none';
+
+    const editBgBtn = document.getElementById('edit-bg-btn');
+    if(editBgBtn) editBgBtn.remove();
+
     loadMoreButton.onclick = () => { currentPage++; renderContent(); };
 }
 
