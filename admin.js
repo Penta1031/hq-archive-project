@@ -246,6 +246,11 @@ async function sendData(action, data) {
 // ============================================================================
 // 📋 리스트 렌더링
 // ============================================================================
+// admin.js 파일에서 renderList() 함수 부분을 아래 코드로 교체하세요.
+
+// ============================================================================
+// 📋 리스트 렌더링 (모바일 레이아웃 개선 + 썸네일 추가)
+// ============================================================================
 function renderList() {
     listContainer.innerHTML = '';
     
@@ -270,24 +275,36 @@ function renderList() {
         }
 
         const opacityClass = (item.isPublished === false || item.isPublished === 'FALSE') ? 'opacity-50' : '';
-        const badge = (item.isPublished === false || item.isPublished === 'FALSE') 
-        ? '<span class="ml-2 text-[10px] bg-gray-600 text-white px-1 rounded">비공개</span>' 
-        : '';
+        const sourceInfo = item.account ? item.account : (item.original || '-');
+        
+        // 썸네일 처리: 있으면 이미지, 없으면 아이콘
+        const thumbUrl = item.thumbnail;
+        const thumbHtml = thumbUrl 
+            ? `<img src="${thumbUrl}" class="w-full h-full object-cover hover:scale-110 transition duration-300" alt="thumb">`
+            : `<div class="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600"><i class="fas fa-image"></i></div>`;
 
         const row = document.createElement('div');
-        row.className = `flex flex-col md:flex-row items-start md:items-center px-4 py-3 border-b border-gray-800 hover:bg-[#1e1e1e] cursor-pointer transition group ${opacityClass}`;
-        const sourceInfo = item.account ? item.account : (item.original || '-');
-
+        // [수정] 모바일/데스크탑 공통으로 썸네일을 왼쪽에 배치하는 Flex 레이아웃 사용
+        row.className = `flex items-center px-4 py-3 border-b border-gray-800 hover:bg-[#1e1e1e] cursor-pointer transition group ${opacityClass}`;
+        
         row.innerHTML = `
-            <div class="w-24 text-gray-500 text-xs font-mono mb-1 md:mb-0 text-center shrink-0">${displayDate || '-'}</div>
-            <div class="w-full md:w-20 mb-1 md:mb-0 text-center shrink-0">
-                <span class="inline-block text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 group-hover:border-gray-500 transition">${item.category || '기타'}</span>
+            <div class="w-20 h-12 md:w-24 md:h-14 shrink-0 rounded overflow-hidden mr-3 md:mr-4 border border-gray-700 bg-gray-900">
+                ${thumbHtml}
             </div>
-            <div class="flex-1 min-w-0 pr-4 w-full mb-1 md:mb-0">
-                <h4 class="text-sm font-bold text-gray-200 truncate group-hover:text-white transition">${item.title}</h4>
+
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                <div class="flex items-center gap-2 mb-1">
+                     <span class="shrink-0 text-[10px] md:text-xs px-1.5 py-0.5 rounded bg-gray-800 text-red-400 border border-gray-700 font-bold">${item.category || '기타'}</span>
+                     <h4 class="text-xs md:text-sm font-bold text-gray-200 truncate group-hover:text-white transition">${item.title}</h4>
+                </div>
+                <div class="flex items-center text-[10px] md:text-xs text-gray-500 gap-2">
+                    <span class="font-mono text-gray-400">${displayDate || '-'}</span>
+                    <span class="w-[1px] h-2 bg-gray-700"></span>
+                    <span class="truncate max-w-[100px] md:max-w-none">${sourceInfo}</span>
+                </div>
             </div>
-            <div class="w-full md:w-32 text-gray-500 text-xs truncate px-2 shrink-0">${sourceInfo}</div>
-            <div class="hidden md:block text-gray-600 group-hover:text-white transition"><i class="fas fa-chevron-right"></i></div>
+
+            <div class="hidden md:block ml-2 text-gray-600 group-hover:text-white transition"><i class="fas fa-chevron-right"></i></div>
         `;
         row.onclick = () => selectItem(item);
         listContainer.appendChild(row);
