@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ 설정 영역
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzLFiRNxq3SOeXTScpiO-1NBUeNH0iwcypE-P46Y6GdpkqqQih69RzvojtklQZd3yLe/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzEaBngIqdGq9Y_-CQGeZ-q2_ie60-Yi1SjYoEPfK4b5Bw0pLiOjgVk9qSZ_BFQ0pRh/exec';
 
 // 기본 분류 규칙
 let CATEGORY_GROUPS = {
@@ -95,15 +95,30 @@ async function initApp() {
     const cachedConfig = localStorage.getItem('hq_archive_config');
 
     if (cachedData) {
-        const parsedData = JSON.parse(cachedData);
-        contentsData = processRawData(parsedData);
-        contentsData.sort((a, b) => dateSort(a, b));
-        if(cachedConfig) applySiteConfig(JSON.parse(cachedConfig));
-        renderMainTabs();
-        refreshView();
-        populateCategoryOptions(); 
+        try {
+            const parsedData = JSON.parse(cachedData);
+            contentsData = processRawData(parsedData);
+            contentsData.sort((a, b) => dateSort(a, b));
+            
+            // ✨ [수정] "undefined" 문자열이거나 오류가 있으면 무시하도록 안전장치 추가
+            if (cachedConfig && cachedConfig !== "undefined") {
+                try {
+                    applySiteConfig(JSON.parse(cachedConfig));
+                } catch (e) {
+                    console.warn("Config parsing failed:", e);
+                    localStorage.removeItem('hq_archive_config'); // 깨진 데이터 삭제
+                }
+            }
+
+            renderMainTabs();
+            refreshView();
+            populateCategoryOptions();
+        } catch (e) {
+            console.error("Cached data parsing error:", e);
+        }
     }
 
+    // 데이터 패치
     fetchGoogleSheetData('fast').then(rawData => {
         if (rawData && contentsData.length === 0) {
             updateDataAndRender(rawData);
@@ -114,7 +129,11 @@ async function initApp() {
     if (fullRawData) {
         updateDataAndRender(fullRawData);
         localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
-        localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
+        
+        // ✨ [수정] config가 실제로 존재할 때만 저장
+        if (fullRawData.config) {
+            localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
+        }
     }
 }
 
@@ -367,16 +386,28 @@ function processRawData(data) {
         let dateDisplay = rawDate;
 
         if (rawDate) {
-            const cleanDate = rawDate.replace(/\./g, '-').replace(/\//g, '-');
+            // 1. ISO 포맷(T포함)이나 긴 문자열이 오면 앞 10자리(YYYY-MM-DD)만 잘라냅니다.
+            let tempDate = rawDate;
+            if (typeof tempDate === 'string' && tempDate.length > 10) {
+                tempDate = tempDate.substring(0, 10);
+            }
+
+            // 2. 점(.)이나 슬래시(/)를 하이픈(-)으로 변경
+            const cleanDate = String(tempDate).replace(/\./g, '-').replace(/\//g, '-');
+
+            // 3. YYYY-MM-DD 형식 검증 및 표준화
             if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
                 const parts = cleanDate.split('-');
                 standardDate = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-                dateDisplay = standardDate.replace(/-/g, '.');
-            } else { dateDisplay = rawDate; }
+                dateDisplay = standardDate; // 요청하신 대로 하이픈(-) 형식 유지
+            } else { 
+                dateDisplay = rawDate; 
+            }
         } else if (year && month) {
-            dateDisplay = `${year}.${month.padStart(2, '0')}`;
-        } else if (year) { dateDisplay = year; }
-
+            dateDisplay = `${year}-${month.padStart(2, '0')}`; // 여기도 하이픈으로 변경
+        } else if (year) { 
+            dateDisplay = year; 
+        }
         let collectionName = '기타';
         let targetTab = 'archive';
 
