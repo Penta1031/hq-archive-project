@@ -98,7 +98,13 @@
                     <section id="calendar-section" class="hidden flex-col border-b border-gray-800 bg-[#1a1a1a] p-4 transition-all duration-300 mb-2">
                         <div class="flex items-center justify-between mb-4 max-w-lg mx-auto w-full">
                             <button id="cal-prev-btn" class="text-gray-400 hover:text-white p-2"><i class="fas fa-chevron-left text-xl"></i></button>
-                            <h2 id="cal-title" class="text-xl md:text-2xl font-bold text-white tracking-wide">2025. 11</h2>
+                            
+                            <div class="flex items-center gap-1">
+                                <select id="admin-cal-year" class="bg-[#1a1a1a] text-xl md:text-2xl font-bold text-white border-none outline-none cursor-pointer hover:text-red-500 transition text-center appearance-none focus:ring-0"></select>
+                                <span class="text-xl md:text-2xl font-bold text-gray-500">.</span>
+                                <select id="admin-cal-month" class="bg-[#1a1a1a] text-xl md:text-2xl font-bold text-white border-none outline-none cursor-pointer hover:text-red-500 transition text-center appearance-none focus:ring-0"></select>
+                            </div>
+
                             <button id="cal-next-btn" class="text-gray-400 hover:text-white p-2"><i class="fas fa-chevron-right text-xl"></i></button>
                         </div>
                         <div class="grid grid-cols-7 text-center mb-2 max-w-4xl mx-auto w-full">
