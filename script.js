@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ 설정 영역
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzS2uMEYOJ5jdhlJwRyOUY3tm8dk_tyooeE5bR6OHKz36SoA9qUq4Vo2wcE3ooDQ2pS/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyHBx1QUd_ClFGJ_PUvLz3HojzVUamEl-ClFOjSvPMkeg59BBZE1rwk_OxSlsb3kTTZ/exec';
 
 // 기본 분류 규칙
 let CATEGORY_GROUPS = {

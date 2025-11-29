@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyc3mCili8avD0Kc8Nu5B9UmhWgUCtQDbLG3_mWJ4eqrgE42nvyWmZjblPQVVfdp2DP/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyP7wzjojAJlP2fIArnknX-WS_-fCNpKqM9aTDZgqLdJ9FzUK9VMFSwfJGdep_8ne5g/exec';
 
 let allData = [];      // DATA 탭용 데이터 (운영 DB)
 let roadData = [];     // ROAD 탭용 데이터 (대기실)
@@ -211,7 +211,9 @@ async function fetchData() {
     listContainer.innerHTML = '<div class="text-center text-gray-500 mt-10"><i class="fas fa-spinner fa-spin"></i> 데이터 로딩 중...</div>';
     try {
         const requestType = (currentTab === 'road') ? 'road' : 'full';
-        const url = GOOGLE_SHEET_API_URL + '?type=' + requestType;
+        
+        // ❌ mode로 바꾸지 마시고, 백엔드(Admin.gs)에 맞춰 'type'을 유지하세요.
+        const url = GOOGLE_SHEET_API_URL + '?type=' + requestType; 
 
         const res = await fetch(url);
         const json = await res.json();
