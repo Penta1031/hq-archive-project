@@ -1,7 +1,8 @@
 // ============================================================================
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyHVn8_x48NqcPa6mHFEPPWHawNtSegg_wY4URFuMswYP9k4XNfYibGrdUkJgG8VTS5/exec';
+// ❗ [중요] Admin.gs 배포 후 발급받은 "웹 앱 URL"을 아래에 입력하세요.
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwplY9ssN_aMaVsRjgyiFNtXUDeULHZhwiSN1_XVhpdaMtJ9nw4QjoOGMxtKQTU6kkH/exec';
 
 let allData = [];      // DATA 탭용 데이터 (운영 DB)
 let roadData = [];     // ROAD 탭용 데이터 (대기실)
@@ -52,7 +53,7 @@ const nextPageBtn = document.getElementById('next-page');
 const pageIndicator = document.getElementById('page-indicator');
 const createNewBtn = document.getElementById('create-new-btn');
 const itemsPerPageSelect = document.getElementById('items-per-page-select');
-const refreshBtn = document.getElementById('refresh-btn'); // 새로고침 버튼 추가
+const refreshBtn = document.getElementById('refresh-btn');
 
 // 캘린더 요소
 const calendarSection = document.getElementById('calendar-section');
@@ -211,13 +212,11 @@ itemsPerPageSelect.addEventListener('change', (e) => {
 if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
         const icon = refreshBtn.querySelector('i');
-        // 아이콘 빙글빙글 돌리기
         if(icon) icon.classList.add('fa-spin');
-        refreshBtn.disabled = true; // 중복 클릭 방지
+        refreshBtn.disabled = true;
 
-        await fetchData(); // 데이터 다시 불러오기
+        await fetchData();
 
-        // 0.5초 뒤에 원상복구 (너무 빨리 끝나면 어색하니까)
         setTimeout(() => {
             if(icon) icon.classList.remove('fa-spin');
             refreshBtn.disabled = false;
@@ -226,14 +225,13 @@ if (refreshBtn) {
 }
 
 // ============================================================================
-// 📡 데이터 통신
+// 📡 데이터 통신 (API 호출)
 // ============================================================================
 async function fetchData() {
     listContainer.innerHTML = '<div class="text-center text-gray-500 mt-10"><i class="fas fa-spinner fa-spin"></i> 데이터 로딩 중...</div>';
     try {
+        // 백엔드에서 requestType을 'road' 또는 'full'로 받음
         const requestType = (currentTab === 'road') ? 'road' : 'full';
-        
-        // ❌ mode로 바꾸지 마시고, 백엔드(Admin.gs)에 맞춰 'type'을 유지하세요.
         const url = GOOGLE_SHEET_API_URL + '?type=' + requestType; 
 
         const res = await fetch(url);
@@ -288,6 +286,7 @@ async function sendData(action, data, directLink = null) {
         data: data
     };
     
+    // [수정 포인트] 트위터 수집 요청 시, 페이로드 최상위에 파라미터 추가
     if (action === 'fetch_twitter') {
         payload.username = data.username;
         payload.startDate = data.startDate;
@@ -295,9 +294,11 @@ async function sendData(action, data, directLink = null) {
     }
 
     try {
+        // admin.js 의 sendData 함수 내부
         const res = await fetch(GOOGLE_SHEET_API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+            // redirect: 'follow', // 👈 이 옵션은 기본값이 follow지만 명시해도 좋습니다.
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 이 부분 중요! application/json으로 보내면 CORS 에러 납니다.
             body: JSON.stringify(payload)
         });
         const json = await res.json();
@@ -379,13 +380,13 @@ function renderAdminCalendar() {
 }
 
 // ============================================================================
-// 📋 리스트 렌더링 (헤더 숨김 로직 수정됨)
+// 📋 리스트 렌더링
 // ============================================================================
 function renderList() {
     const listHeader = document.getElementById('list-header');
     listContainer.innerHTML = '';
     
-    // 데이터 없음 메시지
+    // 데이터 없음
     if (filteredData.length === 0) {
         listContainer.className = 'flex flex-col';
         let msg = '데이터가 없습니다.';
@@ -405,9 +406,8 @@ function renderList() {
     const end = start + itemsPerPage;
     const pageItems = filteredData.slice(start, end);
 
-    // [DATA 탭] 또는 [CALENDAR 탭] -> 카드형 그리드
+    // [DATA / CALENDAR] -> 카드형
     if (currentTab === 'data' || currentTab === 'calendar') {
-        // 🔥 헤더바 확실하게 숨기기 (데스크탑 flex도 제거)
         if (listHeader) {
             listHeader.classList.add('hidden'); 
             listHeader.classList.remove('md:flex');
@@ -454,10 +454,10 @@ function renderList() {
         });
 
     } else {
-        // [ROAD 탭] -> 리스트형
+        // [ROAD] -> 리스트형
         if (listHeader) {
             listHeader.classList.remove('hidden'); 
-            listHeader.classList.add('md:flex'); // 🔥 다시 복구
+            listHeader.classList.add('md:flex');
         }
         listContainer.className = 'flex flex-col';
 
@@ -522,7 +522,7 @@ prevPageBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderList()
 nextPageBtn.onclick = () => { if (currentPage < Math.ceil(filteredData.length / itemsPerPage)) { currentPage++; renderList(); } };
 
 // ============================================================================
-// 🐦 트위터 수집 및 게시
+// 🐦 트위터 수집 및 게시 (Admin.gs 연동)
 // ============================================================================
 async function requestTwitterFetch() {
     const account = document.getElementById('tw-account').value;
@@ -531,12 +531,19 @@ async function requestTwitterFetch() {
 
     if (!account || !start || !end) return alert("계정, 시작일, 종료일을 모두 입력해주세요.");
 
-    const btn = document.querySelector('#twitter-modal button:last-child');
-    const originalText = btn.innerText;
-    btn.innerText = "수집 중...";
-    btn.disabled = true;
+    // 버튼 찾기 (모달 내부)
+    const modal = document.getElementById('twitter-modal');
+    const btn = modal ? modal.querySelector('button:last-child') : null;
+    let originalText = "";
+
+    if (btn) {
+        originalText = btn.innerText;
+        btn.innerText = "수집 중... (약 10초 소요)";
+        btn.disabled = true;
+    }
 
     try {
+        // [중요] Admin.gs의 fetch_twitter 액션 호출
         const result = await sendData('fetch_twitter', { 
             username: account, 
             startDate: start, 
@@ -547,13 +554,15 @@ async function requestTwitterFetch() {
 
         if (result.status === 'success') {
             document.getElementById('twitter-modal').classList.add('hidden');
-            await fetchData(); 
+            await fetchData(); // ROAD 탭 새로고침
         }
     } catch(e) {
         alert("오류 발생: " + e);
     } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
     }
 }
 
