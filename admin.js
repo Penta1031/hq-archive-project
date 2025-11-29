@@ -2,7 +2,7 @@
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
 // ❗ [중요] Admin.gs 배포 후 발급받은 "웹 앱 URL"을 아래에 입력하세요.
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwplY9ssN_aMaVsRjgyiFNtXUDeULHZhwiSN1_XVhpdaMtJ9nw4QjoOGMxtKQTU6kkH/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzCHSjmh7EiOnVz1MpbzhENIyvU35yMWTCEMLhUc560ozKghC2PKylPma6ZeV9nU_9x/exec';
 
 let allData = [];      // DATA 탭용 데이터 (운영 DB)
 let roadData = [];     // ROAD 탭용 데이터 (대기실)
@@ -94,13 +94,46 @@ const inputs = {
 loginBtn.addEventListener('click', attemptLogin);
 passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') attemptLogin(); });
 
-function attemptLogin() {
+// 기존 attemptLogin 함수를 아래 내용으로 교체하세요.
+async function attemptLogin() {
     const pw = passwordInput.value;
     if (!pw) return alert("비밀번호를 입력하세요.");
+
+    // 버튼을 '확인 중' 상태로 변경
+    const originalBtnText = loginBtn.innerText;
+    loginBtn.innerText = "확인 중...";
+    loginBtn.disabled = true;
+
+    // sendData 함수에서 사용하기 위해 임시로 비밀번호 설정
     sessionPassword = pw;
-    loginOverlay.classList.add('hidden');
-    dashboardContainer.classList.remove('hidden');
-    initAdmin();
+
+    try {
+        // 서버에 'login' 액션을 보내 비밀번호가 맞는지 확인
+        // (주의: Google Apps Script에 'login' 액션에 대한 응답 처리가 필요할 수 있습니다.
+        //  보통 비밀번호가 틀리면 서버의 최상단 인증 로직에서 에러를 반환하므로 검증이 가능합니다.)
+        const result = await sendData('login', {});
+
+        if (result.status === 'success') {
+            // 로그인 성공
+            loginOverlay.classList.add('hidden');
+            dashboardContainer.classList.remove('hidden');
+            initAdmin();
+        } else {
+            // 로그인 실패 (서버에서 에러 반환)
+            throw new Error(result.message || "비밀번호 불일치");
+        }
+    } catch (e) {
+        // 에러 처리
+        alert("비밀번호가 올바르지 않습니다.");
+        console.error(e);
+        sessionPassword = null; // 비밀번호 초기화
+        passwordInput.value = '';
+        passwordInput.focus();
+    } finally {
+        // 버튼 상태 복구
+        loginBtn.innerText = originalBtnText;
+        loginBtn.disabled = false;
+    }
 }
 
 logoutBtn.addEventListener('click', () => {
@@ -289,6 +322,7 @@ async function sendData(action, data, directLink = null) {
     // [수정 포인트] 트위터 수집 요청 시, 페이로드 최상위에 파라미터 추가
     if (action === 'fetch_twitter') {
         payload.username = data.username;
+        payload.account = data.account; // <--- 이 줄을 추가하세요! (data.account 값을 최상위로 복사)
         payload.startDate = data.startDate;
         payload.endDate = data.endDate;
     }
@@ -545,7 +579,8 @@ async function requestTwitterFetch() {
     try {
         // [중요] Admin.gs의 fetch_twitter 액션 호출
         const result = await sendData('fetch_twitter', { 
-            username: account, 
+            username: account,
+            account: account, 
             startDate: start, 
             endDate: end 
         });
