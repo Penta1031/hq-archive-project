@@ -45,7 +45,7 @@
         <header class="h-14 md:h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 shrink-0">
             <div class="flex items-center gap-3">
                 <h1 class="text-lg md:text-xl font-bold text-red-600">HQ ADMIN</h1>
-                </div>
+            </div>
             <div class="flex items-center gap-3 md:gap-4">
                 <a href="./index.html" target="_blank" class="text-gray-400 hover:text-white text-xs md:text-sm flex items-center">
                     <i class="fas fa-external-link-alt md:mr-1"></i> <span class="hidden md:inline">사이트 바로가기</span>
@@ -58,7 +58,20 @@
 
         <main class="flex-1 flex overflow-hidden relative">
             <aside class="w-full flex flex-col bg-[#1a1a1a]">
-                <div class="p-3 md:p-4 border-b border-gray-800 flex flex-col md:flex-row items-center justify-between gap-3">
+                
+                <div class="flex border-b border-gray-800 bg-[#1a1a1a] px-4 shrink-0">
+                    <button id="tab-btn-data" class="px-6 py-3 text-sm font-bold border-b-2 border-red-600 text-white transition" onclick="switchTab('data')">DATA (운영)</button>
+                    <button id="tab-btn-calendar" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-white transition" onclick="switchTab('calendar')">CALENDAR (달력)</button>
+                    <button id="tab-btn-road" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-white transition" onclick="switchTab('road')">ROAD (불러오기)</button>
+                </div>
+
+                <div id="road-controls" class="hidden p-3 md:p-4 border-b border-gray-800 flex justify-end bg-[#1a1a1a] shrink-0">
+                    <button onclick="document.getElementById('twitter-modal').classList.remove('hidden')" class="bg-[#1da1f2] hover:bg-[#1a91da] text-white px-4 py-2 rounded font-bold text-xs md:text-sm transition flex items-center">
+                        <i class="fab fa-twitter mr-1.5"></i> 트위터 불러오기
+                    </button>
+                </div>
+
+                <div class="p-3 md:p-4 border-b border-gray-800 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0">
                     <div class="flex items-center gap-2 w-full md:w-auto flex-1">
                         <select id="items-per-page-select" class="bg-gray-800 text-white text-xs md:text-sm border border-gray-700 rounded px-2 py-2 outline-none focus:border-red-600 shrink-0">
                             <option value="10">10개</option>
@@ -73,13 +86,33 @@
                     <button id="create-new-btn" class="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold text-xs md:text-sm transition shrink-0"><i class="fas fa-plus mr-1"></i> 신규 추가</button>
                 </div>
                 
-                <div class="flex-1 overflow-y-auto custom-scrollbar bg-[#141414]">
-                    <div class="hidden md:flex items-center px-4 py-2 bg-gray-900 border-b border-gray-800 text-xs font-bold text-gray-400 sticky top-0 z-10">
+                <div class="flex-1 overflow-y-auto custom-scrollbar bg-[#141414] relative">
+                    
+                    <section id="calendar-section" class="hidden flex-col border-b border-gray-800 bg-[#1a1a1a] p-4 transition-all duration-300 mb-2">
+                        <div class="flex items-center justify-between mb-4 max-w-lg mx-auto w-full">
+                            <button id="cal-prev-btn" class="text-gray-400 hover:text-white p-2"><i class="fas fa-chevron-left text-xl"></i></button>
+                            <h2 id="cal-title" class="text-xl md:text-2xl font-bold text-white tracking-wide">2025. 11</h2>
+                            <button id="cal-next-btn" class="text-gray-400 hover:text-white p-2"><i class="fas fa-chevron-right text-xl"></i></button>
+                        </div>
+                        <div class="grid grid-cols-7 text-center mb-2 max-w-4xl mx-auto w-full">
+                            <div class="text-red-500 font-bold text-sm">SUN</div>
+                            <div class="text-gray-400 font-bold text-sm">MON</div>
+                            <div class="text-gray-400 font-bold text-sm">TUE</div>
+                            <div class="text-gray-400 font-bold text-sm">WED</div>
+                            <div class="text-gray-400 font-bold text-sm">THU</div>
+                            <div class="text-gray-400 font-bold text-sm">FRI</div>
+                            <div class="text-blue-500 font-bold text-sm">SAT</div>
+                        </div>
+                        <div id="admin-calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2 max-w-4xl mx-auto w-full"></div>
+                    </section>
+
+                    <div id="list-header" class="hidden md:flex items-center px-4 py-2 bg-gray-900 border-b border-gray-800 text-xs font-bold text-gray-400 sticky top-0 z-10">
                         <div class="w-24 text-center">썸네일</div> <div class="w-24 text-center">날짜</div>
                         <div class="w-20 text-center">분류</div>
                         <div class="flex-1 px-4">제목</div>
                         <div class="w-32 px-2">계정</div>
                     </div>
+
                     <div id="content-list-container" class="flex flex-col">
                         <div class="text-center text-gray-500 mt-10">데이터를 불러오는 중...</div>
                     </div>
@@ -93,9 +126,9 @@
             </aside>
 
             <div id="editor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-                <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" id="editor-modal-bg"></div>
+                 <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" id="editor-modal-bg"></div>
                 <section id="editor-panel" class="bg-[#141414] w-full max-w-4xl max-h-[90vh] rounded-xl border border-gray-700 shadow-2xl flex flex-col relative z-10 overflow-hidden">
-                    <div class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900/80 shrink-0">
+                     <div class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900/80 shrink-0">
                         <h2 id="editor-title" class="text-lg font-bold text-white">데이터 수정</h2>
                         <div class="flex items-center gap-3">
                             <button id="delete-btn" class="text-red-500 hover:bg-red-500/10 px-3 py-1.5 rounded text-sm transition hidden"><i class="fas fa-trash-alt mr-1"></i> 삭제</button>
@@ -195,6 +228,36 @@
             </div>
         </main>
     </div>
+
+    <div id="twitter-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="document.getElementById('twitter-modal').classList.add('hidden')"></div>
+        <div class="bg-gray-900 rounded-xl p-6 w-full max-w-md border border-gray-700 relative z-10 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fab fa-twitter text-[#1da1f2]"></i> 트위터 데이터 수집
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-400 text-xs mb-1 font-bold">계정명 (@제외)</label>
+                    <input type="text" id="tw-account" value="tody_N" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-3 focus:border-[#1da1f2] outline-none transition">
+                </div>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-gray-400 text-xs mb-1 font-bold">시작일</label>
+                        <input type="date" id="tw-start" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-3 focus:border-[#1da1f2] outline-none transition">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-gray-400 text-xs mb-1 font-bold">종료일</label>
+                        <input type="date" id="tw-end" class="w-full bg-gray-800 text-white border border-gray-700 rounded p-3 focus:border-[#1da1f2] outline-none transition">
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6 border-t border-gray-800 pt-4">
+                <button onclick="document.getElementById('twitter-modal').classList.add('hidden')" class="px-4 py-2 text-gray-400 hover:text-white transition font-medium">취소</button>
+                <button onclick="requestTwitterFetch()" class="bg-[#1da1f2] hover:bg-[#1a91da] text-white px-6 py-2 rounded font-bold shadow-lg transition transform active:scale-95">수집 시작</button>
+            </div>
+        </div>
+    </div>
+
     <script src="admin.js"></script>
 </body>
 </html>

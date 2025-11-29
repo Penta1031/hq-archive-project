@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ 설정 영역
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzEaBngIqdGq9Y_-CQGeZ-q2_ie60-Yi1SjYoEPfK4b5Bw0pLiOjgVk9qSZ_BFQ0pRh/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzS2uMEYOJ5jdhlJwRyOUY3tm8dk_tyooeE5bR6OHKz36SoA9qUq4Vo2wcE3ooDQ2pS/exec';
 
 // 기본 분류 규칙
 let CATEGORY_GROUPS = {
@@ -80,50 +80,48 @@ let selectedDate = null;
 // ============================================================================
 async function initApp() {
     console.log("App Start...");
-    setupEventListeners();
-    initDatePicker();
 
-    const cachedRules = localStorage.getItem('hq_archive_rules');
-    if (cachedRules) {
-        try {
-            const rules = JSON.parse(cachedRules);
-            applyCategoryRules(rules);
-        } catch(e) {}
-    }
+    // const cachedRules = localStorage.getItem('hq_archive_rules');
+    // if (cachedRules) {
+    //     try {
+    //         const rules = JSON.parse(cachedRules);
+    //         applyCategoryRules(rules);
+    //     } catch(e) {}
+    // }
 
-    const cachedData = localStorage.getItem('hq_archive_data');
-    const cachedConfig = localStorage.getItem('hq_archive_config');
+    // const cachedData = localStorage.getItem('hq_archive_data');
+    // const cachedConfig = localStorage.getItem('hq_archive_config');
 
-    if (cachedData) {
-        try {
-            const parsedData = JSON.parse(cachedData);
-            contentsData = processRawData(parsedData);
-            contentsData.sort((a, b) => dateSort(a, b));
+    // if (cachedData) {
+    //     try {
+    //         const parsedData = JSON.parse(cachedData);
+    //         contentsData = processRawData(parsedData);
+    //         contentsData.sort((a, b) => dateSort(a, b));
             
-            // ✨ [수정] "undefined" 문자열이거나 오류가 있으면 무시하도록 안전장치 추가
-            if (cachedConfig && cachedConfig !== "undefined") {
-                try {
-                    applySiteConfig(JSON.parse(cachedConfig));
-                } catch (e) {
-                    console.warn("Config parsing failed:", e);
-                    localStorage.removeItem('hq_archive_config'); // 깨진 데이터 삭제
-                }
-            }
+    //         // ✨ [수정] "undefined" 문자열이거나 오류가 있으면 무시하도록 안전장치 추가
+    //         if (cachedConfig && cachedConfig !== "undefined") {
+    //             try {
+    //                 applySiteConfig(JSON.parse(cachedConfig));
+    //             } catch (e) {
+    //                 console.warn("Config parsing failed:", e);
+    //                 localStorage.removeItem('hq_archive_config'); // 깨진 데이터 삭제
+    //             }
+    //         }
 
-            renderMainTabs();
-            refreshView();
-            populateCategoryOptions();
-        } catch (e) {
-            console.error("Cached data parsing error:", e);
-        }
-    }
+    //         renderMainTabs();
+    //         refreshView();
+    //         populateCategoryOptions();
+    //     } catch (e) {
+    //         console.error("Cached data parsing error:", e);
+    //     }
+    // }
 
     // 데이터 패치
-    fetchGoogleSheetData('fast').then(rawData => {
-        if (rawData && contentsData.length === 0) {
-            updateDataAndRender(rawData);
-        }
-    });
+    // fetchGoogleSheetData('fast').then(rawData => {
+    //     if (rawData && contentsData.length === 0) {
+    //         updateDataAndRender(rawData);
+    //     }
+    // });
 
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
@@ -135,12 +133,15 @@ async function initApp() {
             localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
         }
     }
+
+    setupEventListeners();
+    initDatePicker();
 }
 
 async function fetchGoogleSheetData(mode) {
     try {
         // mode 파라미터가 있으면 URL 뒤에 붙임 (?mode=fast 등)
-        const url = `${GOOGLE_SHEET_API_URL}?mode=${mode || 'full'}`;
+        const url = `${GOOGLE_SHEET_API_URL}?mode=${mode || 'full'}&_t=${Date.now()}`;
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -148,6 +149,7 @@ async function fetchGoogleSheetData(mode) {
         }
         
         const json = await response.json();
+        console.log(json);
         return json;
     } catch (error) {
         console.error("데이터 로드 실패:", error);
