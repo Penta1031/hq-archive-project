@@ -80,7 +80,7 @@ let selectedDate = null;
 // ============================================================================
 async function initApp() {
     console.log("App Start...");
-
+    renderMainTabs(); //    
     // const cachedRules = localStorage.getItem('hq_archive_rules');
     // if (cachedRules) {
     //     try {
