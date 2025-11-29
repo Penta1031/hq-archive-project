@@ -81,54 +81,12 @@ let selectedDate = null;
 async function initApp() {
     console.log("App Start...");
     renderMainTabs(); //    
-    // const cachedRules = localStorage.getItem('hq_archive_rules');
-    // if (cachedRules) {
-    //     try {
-    //         const rules = JSON.parse(cachedRules);
-    //         applyCategoryRules(rules);
-    //     } catch(e) {}
-    // }
-
-    // const cachedData = localStorage.getItem('hq_archive_data');
-    // const cachedConfig = localStorage.getItem('hq_archive_config');
-
-    // if (cachedData) {
-    //     try {
-    //         const parsedData = JSON.parse(cachedData);
-    //         contentsData = processRawData(parsedData);
-    //         contentsData.sort((a, b) => dateSort(a, b));
-            
-    //         // ✨ [수정] "undefined" 문자열이거나 오류가 있으면 무시하도록 안전장치 추가
-    //         if (cachedConfig && cachedConfig !== "undefined") {
-    //             try {
-    //                 applySiteConfig(JSON.parse(cachedConfig));
-    //             } catch (e) {
-    //                 console.warn("Config parsing failed:", e);
-    //                 localStorage.removeItem('hq_archive_config'); // 깨진 데이터 삭제
-    //             }
-    //         }
-
-    //         renderMainTabs();
-    //         refreshView();
-    //         populateCategoryOptions();
-    //     } catch (e) {
-    //         console.error("Cached data parsing error:", e);
-    //     }
-    // }
-
-    // 데이터 패치
-    // fetchGoogleSheetData('fast').then(rawData => {
-    //     if (rawData && contentsData.length === 0) {
-    //         updateDataAndRender(rawData);
-    //     }
-    // });
-
+   
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
         updateDataAndRender(fullRawData);
         localStorage.setItem('hq_archive_data', JSON.stringify(fullRawData.data));
         
-        // ✨ [수정] config가 실제로 존재할 때만 저장
         if (fullRawData.config) {
             localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
         }
@@ -140,7 +98,6 @@ async function initApp() {
 
 async function fetchGoogleSheetData(mode) {
     try {
-        // mode 파라미터가 있으면 URL 뒤에 붙임 (?mode=fast 등)
         const url = `${GOOGLE_SHEET_API_URL}?mode=${mode || 'full'}&_t=${Date.now()}`;
         
         const response = await fetch(url);
@@ -372,44 +329,58 @@ function processRawData(data) {
         const rawDate = (item['날짜'] || item['date'] || '').trim();
         const thumb = item['썸네일'] || item['thumbnail'] || '';
         
-        // ⚡ 키 매핑 수정됨 (User 요청 반영)
-        const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim(); // I열
+        const rawCategoryStr = (item['카테고리'] || item['category'] || '').trim(); 
         const categoryList = rawCategoryStr.split(',').map(k => k.trim()).filter(k => k !== '');
 
         const year = String(item['연도'] || item['year'] || '').trim(); 
         const month = String(item['월별'] || item['month'] || '').replace('월', '').trim();
-        const searchKw = (item['서치 키워드'] || item['searchKeywords'] || '').trim(); // D열
-        const rawKeywordsStr = (item['키워드'] || item['keywords'] || '').trim(); // K열
+        const searchKw = (item['서치 키워드'] || item['searchKeywords'] || '').trim(); 
+        const rawKeywordsStr = (item['키워드'] || item['keywords'] || '').trim(); 
         const keywords = rawKeywordsStr;
-        const comment = (item['코멘트'] || item['comment'] || '').trim(); // J열
-        const original = (item['원본'] || item['original'] || '').trim(); // G열
+        const comment = (item['코멘트'] || item['comment'] || '').trim(); 
+        const original = (item['원본'] || item['original'] || '').trim(); 
 
         let standardDate = '';
         let dateDisplay = rawDate;
 
         if (rawDate) {
-            // 1. ISO 포맷(T포함)이나 긴 문자열이 오면 앞 10자리(YYYY-MM-DD)만 잘라냅니다.
             let tempDate = rawDate;
-            if (typeof tempDate === 'string' && tempDate.length > 10) {
-                tempDate = tempDate.substring(0, 10);
+            
+            // ⚡ [수정] 날짜 보정 로직 (UTC -> KST/Local)
+            // 1. 이미 YYYY-MM-DD 형식이면 그대로 유지
+            if (/^\d{4}-\d{2}-\d{2}$/.test(tempDate)) {
+                // pass
+            } 
+            // 2. ISO 포맷 등(T 포함)이면 Date 객체로 변환해 Local YYYY-MM-DD 추출
+            else {
+                const dateObj = new Date(tempDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const y = dateObj.getFullYear();
+                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const d = String(dateObj.getDate()).padStart(2, '0');
+                    tempDate = `${y}-${m}-${d}`;
+                } else if (typeof tempDate === 'string' && tempDate.length > 10) {
+                     // 변환 실패 시 기존처럼 앞에서 10자리 자르기 (Fallback)
+                     tempDate = tempDate.substring(0, 10);
+                }
             }
-
-            // 2. 점(.)이나 슬래시(/)를 하이픈(-)으로 변경
+            
+            // 3. 포맷 표준화 (.-/ -> -)
             const cleanDate = String(tempDate).replace(/\./g, '-').replace(/\//g, '-');
 
-            // 3. YYYY-MM-DD 형식 검증 및 표준화
             if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
                 const parts = cleanDate.split('-');
                 standardDate = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-                dateDisplay = standardDate; // 요청하신 대로 하이픈(-) 형식 유지
+                dateDisplay = standardDate;
             } else { 
                 dateDisplay = rawDate; 
             }
         } else if (year && month) {
-            dateDisplay = `${year}-${month.padStart(2, '0')}`; // 여기도 하이픈으로 변경
+            dateDisplay = `${year}-${month.padStart(2, '0')}`;
         } else if (year) { 
             dateDisplay = year; 
         }
+
         let collectionName = '기타';
         let targetTab = 'archive';
 
@@ -506,13 +477,13 @@ function renderCalendar() {
 
     for (let i = 1; i <= lastDate; i++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const cell = document.createElement('div');
         const hasData = contentsData.some(item => item.standardDate === dateStr);
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const isToday = (todayStr === dateStr);
         const isSelected = selectedDate === dateStr;
 
+        cell = document.createElement('div');
         cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-800 relative
             ${isSelected ? 'bg-gray-800 border-red-600 text-white' : 'text-gray-400'}
             ${isToday ? 'border-2 border-red-600 text-white font-bold' : 'border border-transparent'}
@@ -563,7 +534,6 @@ function renderCollections() {
     let listToShow = ['All']; 
 
     if (currentMainTab === 'total_archive') {
-        // ⚡ Archive 탭: 필터 없음 (전체보기 하나만 둠)
         listToShow = [{id:'All', name:'전체 보기'}];
     } else if (currentMainTab === 'archive') {
         listToShow = [{id:'All', name:'전체 보기'}, ...Object.keys(CATEGORY_GROUPS).map(k => ({id:k, name:k}))];
@@ -662,9 +632,8 @@ function renderContent() {
             result = result.filter(item => item.standardDate && item.standardDate.startsWith(targetMonth));
         }
     } 
-    // ⚡ [추가] Archive 탭은 필터 없이 전체 노출
     else if (currentMainTab === 'total_archive') {
-        result = contentsData; // 전체 데이터
+        result = contentsData; 
     }
     else {
         result = result.filter(item => item.mainTab === currentMainTab);
@@ -828,7 +797,6 @@ function setupEventListeners() {
     if (adminBtn) {
         adminBtn.style.display = 'block';
         adminBtn.onclick = () => {
-            // admin.html 페이지로 이동
             window.location.href = 'admin.html';
         };
     }
