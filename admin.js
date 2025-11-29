@@ -1,7 +1,7 @@
 // ============================================================================
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyP7wzjojAJlP2fIArnknX-WS_-fCNpKqM9aTDZgqLdJ9FzUK9VMFSwfJGdep_8ne5g/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyHVn8_x48NqcPa6mHFEPPWHawNtSegg_wY4URFuMswYP9k4XNfYibGrdUkJgG8VTS5/exec';
 
 let allData = [];      // DATA 탭용 데이터 (운영 DB)
 let roadData = [];     // ROAD 탭용 데이터 (대기실)
