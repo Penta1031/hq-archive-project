@@ -2,7 +2,7 @@
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
 // ❗ [중요] Admin.gs 배포 후 발급받은 "웹 앱 URL"을 아래에 입력하세요.
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzCHSjmh7EiOnVz1MpbzhENIyvU35yMWTCEMLhUc560ozKghC2PKylPma6ZeV9nU_9x/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyB8sq1GtlItK79UlklgeS93myTV4hITpH9HnjO2r9HWM0_FKEYz9hgCYoY7sNvJFhf/exec';
 
 let allData = [];      // DATA 탭용 데이터 (운영 DB)
 let roadData = [];     // ROAD 탭용 데이터 (대기실)
@@ -94,43 +94,31 @@ const inputs = {
 loginBtn.addEventListener('click', attemptLogin);
 passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') attemptLogin(); });
 
-// 기존 attemptLogin 함수를 아래 내용으로 교체하세요.
 async function attemptLogin() {
     const pw = passwordInput.value;
     if (!pw) return alert("비밀번호를 입력하세요.");
 
-    // 버튼을 '확인 중' 상태로 변경
     const originalBtnText = loginBtn.innerText;
     loginBtn.innerText = "확인 중...";
     loginBtn.disabled = true;
-
-    // sendData 함수에서 사용하기 위해 임시로 비밀번호 설정
     sessionPassword = pw;
 
     try {
-        // 서버에 'login' 액션을 보내 비밀번호가 맞는지 확인
-        // (주의: Google Apps Script에 'login' 액션에 대한 응답 처리가 필요할 수 있습니다.
-        //  보통 비밀번호가 틀리면 서버의 최상단 인증 로직에서 에러를 반환하므로 검증이 가능합니다.)
         const result = await sendData('login', {});
-
         if (result.status === 'success') {
-            // 로그인 성공
             loginOverlay.classList.add('hidden');
             dashboardContainer.classList.remove('hidden');
             initAdmin();
         } else {
-            // 로그인 실패 (서버에서 에러 반환)
             throw new Error(result.message || "비밀번호 불일치");
         }
     } catch (e) {
-        // 에러 처리
         alert("비밀번호가 올바르지 않습니다.");
         console.error(e);
-        sessionPassword = null; // 비밀번호 초기화
+        sessionPassword = null;
         passwordInput.value = '';
         passwordInput.focus();
     } finally {
-        // 버튼 상태 복구
         loginBtn.innerText = originalBtnText;
         loginBtn.disabled = false;
     }
@@ -189,13 +177,12 @@ async function switchTab(tabName) {
         roadControls?.classList.add('hidden');
         calendarSection.classList.remove('hidden'); 
         createNewBtn.classList.remove('hidden');
-        
         selectedCalDate = null;
         renderAdminCalendar();
     } else if (tabName === 'road') {
         roadControls?.classList.remove('hidden');
         calendarSection.classList.add('hidden');
-        createNewBtn.classList.add('hidden');
+        createNewBtn.classList.add('hidden'); // ROAD탭에서는 신규 추가 버튼 숨김
     }
 
     await fetchData(); 
@@ -263,7 +250,6 @@ if (refreshBtn) {
 async function fetchData() {
     listContainer.innerHTML = '<div class="text-center text-gray-500 mt-10"><i class="fas fa-spinner fa-spin"></i> 데이터 로딩 중...</div>';
     try {
-        // 백엔드에서 requestType을 'road' 또는 'full'로 받음
         const requestType = (currentTab === 'road') ? 'road' : 'full';
         const url = GOOGLE_SHEET_API_URL + '?type=' + requestType; 
 
@@ -319,20 +305,17 @@ async function sendData(action, data, directLink = null) {
         data: data
     };
     
-    // [수정 포인트] 트위터 수집 요청 시, 페이로드 최상위에 파라미터 추가
     if (action === 'fetch_twitter') {
         payload.username = data.username;
-        payload.account = data.account; // <--- 이 줄을 추가하세요! (data.account 값을 최상위로 복사)
+        payload.account = data.account;
         payload.startDate = data.startDate;
         payload.endDate = data.endDate;
     }
 
     try {
-        // admin.js 의 sendData 함수 내부
         const res = await fetch(GOOGLE_SHEET_API_URL, {
             method: 'POST',
-            // redirect: 'follow', // 👈 이 옵션은 기본값이 follow지만 명시해도 좋습니다.
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 이 부분 중요! application/json으로 보내면 CORS 에러 납니다.
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
         const json = await res.json();
@@ -414,10 +397,17 @@ function renderAdminCalendar() {
 }
 
 // ============================================================================
-// 📋 리스트 렌더링
+// 📋 리스트 렌더링 (모든 탭에서 카드형 그리드 사용)
 // ============================================================================
 function renderList() {
     const listHeader = document.getElementById('list-header');
+    
+    // 모바일 리스트 헤더 숨김 (ROAD 탭에서도 카드형을 쓰므로 불필요)
+    if (listHeader) {
+        listHeader.classList.add('hidden'); 
+        listHeader.classList.remove('md:flex');
+    }
+
     listContainer.innerHTML = '';
     
     // 데이터 없음
@@ -440,99 +430,62 @@ function renderList() {
     const end = start + itemsPerPage;
     const pageItems = filteredData.slice(start, end);
 
-    // [DATA / CALENDAR] -> 카드형
-    if (currentTab === 'data' || currentTab === 'calendar') {
-        if (listHeader) {
-            listHeader.classList.add('hidden'); 
-            listHeader.classList.remove('md:flex');
-        }
+    // [모든 탭] -> 카드형 그리드 레이아웃 적용
+    listContainer.className = 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4';
+
+    pageItems.forEach(item => {
+        const thumbUrl = item.thumbnail || '';
+        let thumbHtml = thumbUrl 
+            ? `<img src="${thumbUrl}" class="w-full h-full object-cover transition duration-500 group-hover:scale-110" loading="lazy">`
+            : `<div class="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600"><i class="fas fa-image"></i></div>`;
+
+        // ROAD 탭 아이템은 기본적으로 비공개 상태지만, 여기선 흐리게 표시하지 않고 
+        // 뱃지 등으로 구분하거나, 원한다면 밝게 표시합니다. 
+        // 기존 로직: 비공개면 흐림. ROAD 데이터는 isPublished가 없을 수 있음.
+        const isRoadItem = (currentTab === 'road');
+        const opacityClass = (!isRoadItem && (item.isPublished === false || item.isPublished === 'FALSE')) ? 'opacity-50 grayscale' : '';
         
-        listContainer.className = 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4';
+        const card = document.createElement('div');
+        card.className = `group bg-[#181818] rounded-md overflow-hidden relative transition duration-300 hover:z-20 hover:scale-105 hover:shadow-2xl border border-transparent hover:border-gray-600 ${opacityClass}`;
+        
+        let statusBadge = '';
+        if (isRoadItem) {
+            statusBadge = '<div class="absolute top-2 right-2 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow z-10">NEW (Road)</div>';
+        } else if (item.isPublished === false || item.isPublished === 'FALSE') {
+            statusBadge = '<div class="absolute inset-0 flex items-center justify-center bg-black/60 text-gray-400 text-xs font-bold"><i class="fas fa-eye-slash mr-1"></i> 비공개</div>';
+        }
 
-        pageItems.forEach(item => {
-            const thumbUrl = item.thumbnail || '';
-            let thumbHtml = thumbUrl 
-                ? `<img src="${thumbUrl}" class="w-full h-full object-cover transition duration-500 group-hover:scale-110" loading="lazy">`
-                : `<div class="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600"><i class="fas fa-image"></i></div>`;
-
-            const opacityClass = (item.isPublished === false || item.isPublished === 'FALSE') ? 'opacity-50 grayscale' : '';
-
-            const card = document.createElement('div');
-            card.className = `group bg-[#181818] rounded-md overflow-hidden relative transition duration-300 hover:z-20 hover:scale-105 hover:shadow-2xl border border-transparent hover:border-gray-600 ${opacityClass}`;
-            
-            card.innerHTML = `
-                <div class="aspect-video overflow-hidden relative bg-gray-900">
-                    ${thumbHtml}
-                    ${(item.isPublished === false || item.isPublished === 'FALSE') ? '<div class="absolute inset-0 flex items-center justify-center bg-black/60 text-gray-400 text-xs font-bold"><i class="fas fa-eye-slash mr-1"></i> 비공개</div>' : ''}
+        // ROAD 탭일 경우 클릭 시 동작: 에디터 열기 (selectItem)
+        // DATA 탭일 경우: 동일
+        
+        card.innerHTML = `
+            <div class="aspect-video overflow-hidden relative bg-gray-900 cursor-pointer" onclick="selectItem(this.closest('.group').dataset.link)">
+                ${thumbHtml}
+                ${statusBadge}
+            </div>
+            <div class="p-3 cursor-pointer" onclick="selectItem(this.closest('.group').dataset.link)">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] font-bold text-red-400 border border-red-900 bg-red-900/20 px-1.5 py-0.5 rounded truncate max-w-[60%]">${item.category || '미분류'}</span>
+                    <span class="text-[10px] text-gray-500">${item.date || '-'}</span>
                 </div>
-                <div class="p-3">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <span class="text-[10px] font-bold text-red-400 border border-red-900 bg-red-900/20 px-1.5 py-0.5 rounded truncate max-w-[60%]">${item.category || '기타'}</span>
-                        <span class="text-[10px] text-gray-500">${item.date || '-'}</span>
-                    </div>
-                    <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-snug line-clamp-2 group-hover:text-white transition h-[2.5em]">${item.title}</h3>
-                </div>
-                <div class="absolute inset-0 bg-black/80 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition duration-200 backdrop-blur-[2px]">
+                <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-snug line-clamp-2 group-hover:text-white transition h-[2.5em]">${item.title}</h3>
+            </div>
+            <div class="absolute inset-0 bg-black/80 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition duration-200 backdrop-blur-[2px] pointer-events-none">
+                <div class="pointer-events-auto flex gap-2">
                     <button class="bg-blue-600 hover:bg-blue-500 text-white w-10 h-10 rounded-full shadow-lg transform hover:scale-110 transition flex items-center justify-center" 
-                        onclick="selectItem(this.closest('.group').dataset.link)" title="수정">
-                        <i class="fas fa-pencil-alt"></i>
+                        onclick="selectItem(this.closest('.group').dataset.link)" title="${isRoadItem ? '수정 및 게시' : '수정'}">
+                        <i class="fas ${isRoadItem ? 'fa-upload' : 'fa-pencil-alt'}"></i>
                     </button>
                     <button class="bg-red-600 hover:bg-red-500 text-white w-10 h-10 rounded-full shadow-lg transform hover:scale-110 transition flex items-center justify-center" 
                         onclick="deleteItemFromCard(this.closest('.group').dataset.link)" title="삭제">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
-            `;
-            card.dataset.link = item.link; 
-            listContainer.appendChild(card);
-        });
-
-    } else {
-        // [ROAD] -> 리스트형
-        if (listHeader) {
-            listHeader.classList.remove('hidden'); 
-            listHeader.classList.add('md:flex');
-        }
-        listContainer.className = 'flex flex-col';
-
-        pageItems.forEach(item => {
-            let displayDate = item.date && item.date.length > 10 ? item.date.substring(0, 10) : item.date;
-            const sourceInfo = item.account ? item.account : (item.original || '-');
-            const thumbUrl = item.thumbnail;
-            const thumbHtml = thumbUrl 
-                ? `<img src="${thumbUrl}" class="w-full h-full object-cover hover:scale-110 transition duration-300">`
-                : `<div class="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600"><i class="fas fa-image"></i></div>`;
-
-            const row = document.createElement('div');
-            row.className = `flex items-center px-4 py-3 border-b border-gray-800 hover:bg-[#1e1e1e] cursor-pointer transition group`;
-            
-            const actionArea = `
-                <button class="ml-3 bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded font-bold shadow transition z-10 shrink-0 whitespace-nowrap"
-                    onclick="event.stopPropagation(); publishItem('${item.link}')">
-                    <i class="fas fa-upload mr-1"></i> 게시
-                </button>
-            `;
-
-            row.innerHTML = `
-                <div class="w-20 h-12 md:w-24 md:h-14 shrink-0 rounded overflow-hidden mr-3 md:mr-4 border border-gray-700 bg-gray-900">
-                    ${thumbHtml}
-                </div>
-                <div class="flex-1 min-w-0 flex flex-col justify-center">
-                    <div class="flex items-center gap-2 mb-1">
-                         <span class="shrink-0 text-[10px] md:text-xs px-1.5 py-0.5 rounded bg-gray-800 text-red-400 border border-gray-700 font-bold">${item.category || '기타'}</span>
-                         <h4 class="text-xs md:text-sm font-bold text-gray-200 truncate group-hover:text-white transition">${item.title}</h4>
-                    </div>
-                    <div class="flex items-center text-[10px] md:text-xs text-gray-500 gap-2">
-                        <span class="font-mono text-gray-400">${displayDate || '-'}</span>
-                        <span class="w-[1px] h-2 bg-gray-700"></span>
-                        <span class="truncate max-w-[100px] md:max-w-none">${sourceInfo}</span>
-                    </div>
-                </div>
-                ${actionArea}
-            `;
-            listContainer.appendChild(row);
-        });
-    }
+            </div>
+        `;
+        card.dataset.link = item.link; 
+        listContainer.appendChild(card);
+    });
 
     pageIndicator.innerText = `${currentPage} / ${totalPages}`;
     prevPageBtn.disabled = currentPage === 1;
@@ -565,7 +518,6 @@ async function requestTwitterFetch() {
 
     if (!account || !start || !end) return alert("계정, 시작일, 종료일을 모두 입력해주세요.");
 
-    // 버튼 찾기 (모달 내부)
     const modal = document.getElementById('twitter-modal');
     const btn = modal ? modal.querySelector('button:last-child') : null;
     let originalText = "";
@@ -577,7 +529,6 @@ async function requestTwitterFetch() {
     }
 
     try {
-        // [중요] Admin.gs의 fetch_twitter 액션 호출
         const result = await sendData('fetch_twitter', { 
             username: account,
             account: account, 
@@ -589,7 +540,7 @@ async function requestTwitterFetch() {
 
         if (result.status === 'success') {
             document.getElementById('twitter-modal').classList.add('hidden');
-            await fetchData(); // ROAD 탭 새로고침
+            await fetchData(); 
         }
     } catch(e) {
         alert("오류 발생: " + e);
@@ -601,7 +552,9 @@ async function requestTwitterFetch() {
     }
 }
 
+// 구 버전(리스트형)에서 쓰던 함수지만 호환성을 위해 남겨둡니다.
 async function publishItem(link) {
+    // 이제는 selectItem -> 에디터 -> 게시 과정을 권장합니다.
     if(!confirm("이 트윗을 DATA(운영) 시트로 게시하시겠습니까?\n게시 후 Index 페이지에 노출됩니다.")) return;
     
     const item = roadData.find(i => i.link === link);
@@ -671,11 +624,12 @@ function resetFormInputs() {
 }
 
 function selectItem(arg) {
-    if (currentTab === 'road') return; 
-
+    // [수정] ROAD 탭에서도 수정창 열기 허용 (기존: if (currentTab === 'road') return;)
+    
     let item;
     if (typeof arg === 'string') {
-        item = allData.find(i => i.link === arg);
+        const sourceData = (currentTab === 'road') ? roadData : allData;
+        item = sourceData.find(i => i.link === arg);
     } else {
         item = arg;
     }
@@ -684,11 +638,19 @@ function selectItem(arg) {
 
     currentMode = 'update';
     selectedLink = item.link;
-    editorTitle.innerText = "데이터 수정";
+    editorTitle.innerText = (currentTab === 'road') ? "데이터 수정 및 게시" : "데이터 수정";
     deleteBtn.classList.remove('hidden');
-    saveBtn.innerText = "수정사항 저장";
-    saveBtn.classList.replace('bg-red-600', 'bg-blue-600');
-    saveBtn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+    
+    // 버튼 텍스트 변경
+    if (currentTab === 'road') {
+        saveBtn.innerText = "수정 후 게시하기";
+        saveBtn.classList.replace('bg-red-600', 'bg-blue-600'); 
+        saveBtn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+    } else {
+        saveBtn.innerText = "수정사항 저장";
+        saveBtn.classList.replace('bg-red-600', 'bg-blue-600');
+        saveBtn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+    }
 
     inputs.title.value = item.title;
     inputs.date.value = item.date && item.date.length > 10 ? item.date.substring(0, 10) : item.date;
@@ -702,7 +664,7 @@ function selectItem(arg) {
     inputs.searchKw.value = item.searchKeywords;
     inputs.keywords.value = item.keywords;
     inputs.comment.value = item.comment;
-    inputs.published.checked = (item.isPublished === true || item.isPublished === 'TRUE' || item.isPublished === '');
+    inputs.published.checked = (item.isPublished === true || item.isPublished === 'TRUE' || item.isPublished === '' || currentTab === 'road'); // ROAD는 기본 체크
 
     updateThumbnailPreview(item.thumbnail); 
     openEditorModal();
@@ -745,15 +707,20 @@ saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
 
     try {
-        await sendData(currentMode === 'create' ? 'add' : 'update', newData);
-        alert("저장되었습니다.");
+        // [수정] ROAD 탭에서 저장은 곧 '게시(Publish)'를 의미함
+        let action = (currentMode === 'create') ? 'add' : 'update';
+        if (currentTab === 'road') action = 'publish';
+
+        await sendData(action, newData);
+        
+        alert(currentTab === 'road' ? "게시되었습니다!" : "저장되었습니다.");
         closeEditorModal();
         await fetchData(); 
     } catch (e) {
-        alert("오류 발생");
+        alert("오류 발생: " + e);
     } finally {
         saveBtn.disabled = false;
-        saveBtn.innerText = currentMode === 'create' ? "새 데이터 등록" : "수정사항 저장";
+        saveBtn.innerText = (currentMode === 'create') ? "새 데이터 등록" : (currentTab === 'road' ? "수정 후 게시하기" : "수정사항 저장");
     }
 });
 
