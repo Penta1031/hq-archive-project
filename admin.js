@@ -89,6 +89,25 @@ const inputs = {
 };
 
 // ============================================================================
+// 🛠️ [추가] 날짜 변환 헬퍼 함수 (UTC -> KST 보정)
+// ============================================================================
+function formatToLocalYMD(dateStr) {
+    if (!dateStr) return '';
+    // 이미 YYYY-MM-DD 형식이면 그대로 반환
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    
+    // ISO 문자열(Z로 끝남)이나 다른 형식일 경우 브라우저 시간대(KST)로 변환
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr; // 변환 실패 시 원본 반환
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+// ============================================================================
 // 🔐 로그인 및 초기화
 // ============================================================================
 loginBtn.addEventListener('click', attemptLogin);
@@ -182,7 +201,7 @@ async function switchTab(tabName) {
     } else if (tabName === 'road') {
         roadControls?.classList.remove('hidden');
         calendarSection.classList.add('hidden');
-        createNewBtn.classList.add('hidden'); // ROAD탭에서는 신규 추가 버튼 숨김
+        createNewBtn.classList.add('hidden'); 
     }
 
     await fetchData(); 
@@ -258,7 +277,8 @@ async function fetchData() {
         
         const mappedData = json.data.map(item => ({
             title: item['title'] || '',
-            date: item['date'] || '',
+            // ⚡ [수정] 날짜를 KST 기준으로 올바르게 변환하여 표시
+            date: formatToLocalYMD(item['date'] || item['날짜']),
             link: item['link'] || '',
             category: item['category'] || '',
             account: item['account'] || '', 
@@ -360,7 +380,8 @@ function renderAdminCalendar() {
 
     for (let i = 1; i <= lastDate; i++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const count = allData.filter(item => item.date && item.date.startsWith(dateStr)).length;
+        // 날짜 비교 시에도 정확한 포맷 사용
+        const count = allData.filter(item => item.date && item.date === dateStr).length;
         const isSelected = selectedCalDate === dateStr;
         const isToday = (new Date().toISOString().slice(0, 10) === dateStr);
 
@@ -385,7 +406,8 @@ function renderAdminCalendar() {
             selectedCalDate = (selectedCalDate === dateStr) ? null : dateStr;
             renderAdminCalendar(); 
             if (selectedCalDate) {
-                filteredData = allData.filter(item => item.date && item.date.startsWith(selectedCalDate));
+                // 정확한 날짜 일치 필터링
+                filteredData = allData.filter(item => item.date && item.date === selectedCalDate);
             } else {
                 filteredData = allData;
             }
@@ -402,7 +424,6 @@ function renderAdminCalendar() {
 function renderList() {
     const listHeader = document.getElementById('list-header');
     
-    // 모바일 리스트 헤더 숨김 (ROAD 탭에서도 카드형을 쓰므로 불필요)
     if (listHeader) {
         listHeader.classList.add('hidden'); 
         listHeader.classList.remove('md:flex');
@@ -439,9 +460,6 @@ function renderList() {
             ? `<img src="${thumbUrl}" class="w-full h-full object-cover transition duration-500 group-hover:scale-110" loading="lazy">`
             : `<div class="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600"><i class="fas fa-image"></i></div>`;
 
-        // ROAD 탭 아이템은 기본적으로 비공개 상태지만, 여기선 흐리게 표시하지 않고 
-        // 뱃지 등으로 구분하거나, 원한다면 밝게 표시합니다. 
-        // 기존 로직: 비공개면 흐림. ROAD 데이터는 isPublished가 없을 수 있음.
         const isRoadItem = (currentTab === 'road');
         const opacityClass = (!isRoadItem && (item.isPublished === false || item.isPublished === 'FALSE')) ? 'opacity-50 grayscale' : '';
         
@@ -455,9 +473,10 @@ function renderList() {
             statusBadge = '<div class="absolute inset-0 flex items-center justify-center bg-black/60 text-gray-400 text-xs font-bold"><i class="fas fa-eye-slash mr-1"></i> 비공개</div>';
         }
 
-        // ROAD 탭일 경우 클릭 시 동작: 에디터 열기 (selectItem)
-        // DATA 탭일 경우: 동일
-        
+        // ⚡ 날짜 포맷팅 (YYYY-MM-DD 만 표시)
+        // fetchData에서 이미 포맷팅 했으므로 여기서는 그대로 사용
+        let displayDate = item.date || '-';
+
         card.innerHTML = `
             <div class="aspect-video overflow-hidden relative bg-gray-900 cursor-pointer" onclick="selectItem(this.closest('.group').dataset.link)">
                 ${thumbHtml}
@@ -466,7 +485,7 @@ function renderList() {
             <div class="p-3 cursor-pointer" onclick="selectItem(this.closest('.group').dataset.link)">
                 <div class="flex items-center justify-between mb-1.5">
                     <span class="text-[10px] font-bold text-red-400 border border-red-900 bg-red-900/20 px-1.5 py-0.5 rounded truncate max-w-[60%]">${item.category || '미분류'}</span>
-                    <span class="text-[10px] text-gray-500">${item.date || '-'}</span>
+                    <span class="text-[10px] text-gray-500">${displayDate}</span>
                 </div>
                 <h3 class="text-xs md:text-sm font-bold text-gray-200 leading-snug line-clamp-2 group-hover:text-white transition h-[2.5em]">${item.title}</h3>
             </div>
@@ -552,9 +571,7 @@ async function requestTwitterFetch() {
     }
 }
 
-// 구 버전(리스트형)에서 쓰던 함수지만 호환성을 위해 남겨둡니다.
 async function publishItem(link) {
-    // 이제는 selectItem -> 에디터 -> 게시 과정을 권장합니다.
     if(!confirm("이 트윗을 DATA(운영) 시트로 게시하시겠습니까?\n게시 후 Index 페이지에 노출됩니다.")) return;
     
     const item = roadData.find(i => i.link === link);
@@ -624,8 +641,6 @@ function resetFormInputs() {
 }
 
 function selectItem(arg) {
-    // [수정] ROAD 탭에서도 수정창 열기 허용 (기존: if (currentTab === 'road') return;)
-    
     let item;
     if (typeof arg === 'string') {
         const sourceData = (currentTab === 'road') ? roadData : allData;
@@ -641,7 +656,6 @@ function selectItem(arg) {
     editorTitle.innerText = (currentTab === 'road') ? "데이터 수정 및 게시" : "데이터 수정";
     deleteBtn.classList.remove('hidden');
     
-    // 버튼 텍스트 변경
     if (currentTab === 'road') {
         saveBtn.innerText = "수정 후 게시하기";
         saveBtn.classList.replace('bg-red-600', 'bg-blue-600'); 
@@ -659,12 +673,15 @@ function selectItem(arg) {
     inputs.account.value = item.account;
     inputs.original.value = item.original;
     inputs.year.value = item.year;
+    
+    // 월 포맷 정리 (숫자만 있어도 '월' 제거 후 다시 붙임)
     inputs.month.value = item.month ? item.month.replace('월', '') : '';
+    
     inputs.thumbnail.value = item.thumbnail;
     inputs.searchKw.value = item.searchKeywords;
     inputs.keywords.value = item.keywords;
     inputs.comment.value = item.comment;
-    inputs.published.checked = (item.isPublished === true || item.isPublished === 'TRUE' || item.isPublished === '' || currentTab === 'road'); // ROAD는 기본 체크
+    inputs.published.checked = (item.isPublished === true || item.isPublished === 'TRUE' || item.isPublished === '' || currentTab === 'road'); 
 
     updateThumbnailPreview(item.thumbnail); 
     openEditorModal();
@@ -685,6 +702,10 @@ createNewBtn.addEventListener('click', () => {
 });
 
 saveBtn.addEventListener('click', async () => {
+    // 월(Month) 값이 '11월월' 처럼 되는 것 방지
+    let cleanMonth = inputs.month.value.replace('월', '').trim();
+    if (cleanMonth) cleanMonth += '월';
+
     const newData = {
         title: inputs.title.value.trim(),
         date: inputs.date.value.trim(),
@@ -693,10 +714,10 @@ saveBtn.addEventListener('click', async () => {
         account: inputs.account.value.trim(),
         original: inputs.original.value.trim(),
         year: inputs.year.value,
-        month: inputs.month.value ? inputs.month.value + '월' : '',
+        month: cleanMonth,
         thumbnail: inputs.thumbnail.value.trim(),
-        searchKeywords: inputs.searchKw.value.trim(),
-        keywords: inputs.keywords.value.trim(),
+        searchKeywords: inputs.searchKw.value.trim(), // D열
+        keywords: inputs.keywords.value.trim(),       // K열 (Select)
         comment: inputs.comment.value.trim(),
         isPublished: inputs.published.checked,
     };
@@ -707,13 +728,18 @@ saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
 
     try {
-        // [수정] ROAD 탭에서 저장은 곧 '게시(Publish)'를 의미함
-        let action = (currentMode === 'create') ? 'add' : 'update';
-        if (currentTab === 'road') action = 'publish';
+        if (currentMode === 'create') {
+            await sendData('add', newData);
+        } else if (currentTab === 'road') {
+            // [중요] ROAD 탭에서는 수정된 데이터를 함께 보내어 즉시 반영되게 함
+            await sendData('publish', newData, newData.link);
+            alert("게시되었습니다!");
+        } else {
+            // DATA 탭에서는 일반 수정
+            await sendData('update', newData);
+            alert("저장되었습니다.");
+        }
 
-        await sendData(action, newData);
-        
-        alert(currentTab === 'road' ? "게시되었습니다!" : "저장되었습니다.");
         closeEditorModal();
         await fetchData(); 
     } catch (e) {
