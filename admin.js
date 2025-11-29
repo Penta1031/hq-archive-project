@@ -52,6 +52,7 @@ const nextPageBtn = document.getElementById('next-page');
 const pageIndicator = document.getElementById('page-indicator');
 const createNewBtn = document.getElementById('create-new-btn');
 const itemsPerPageSelect = document.getElementById('items-per-page-select');
+const refreshBtn = document.getElementById('refresh-btn'); // 새로고침 버튼 추가
 
 // 캘린더 요소
 const calendarSection = document.getElementById('calendar-section');
@@ -203,6 +204,26 @@ itemsPerPageSelect.addEventListener('change', (e) => {
     currentPage = 1;
     renderList();
 });
+
+// ============================================================================
+// 🔄 새로고침 버튼 로직
+// ============================================================================
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+        const icon = refreshBtn.querySelector('i');
+        // 아이콘 빙글빙글 돌리기
+        if(icon) icon.classList.add('fa-spin');
+        refreshBtn.disabled = true; // 중복 클릭 방지
+
+        await fetchData(); // 데이터 다시 불러오기
+
+        // 0.5초 뒤에 원상복구 (너무 빨리 끝나면 어색하니까)
+        setTimeout(() => {
+            if(icon) icon.classList.remove('fa-spin');
+            refreshBtn.disabled = false;
+        }, 500);
+    });
+}
 
 // ============================================================================
 // 📡 데이터 통신
