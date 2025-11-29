@@ -352,6 +352,9 @@ async function sendData(action, data, directLink = null) {
 // ============================================================================
 // 📅 캘린더 로직 (수정됨)
 // ============================================================================
+// ============================================================================
+// 📅 캘린더 로직 (수정됨)
+// ============================================================================
 function setupCalendarEvents() {
     // 1. 이전/다음 버튼 이벤트
     if (calPrevBtn) {
@@ -387,12 +390,12 @@ function setupCalendarEvents() {
         monthSelect.innerHTML = '';
         for (let m = 0; m < 12; m++) {
             const opt = document.createElement('option');
-            opt.value = m;
+            opt.value = m; // 0~11
             opt.innerText = String(m + 1).padStart(2, '0');
             monthSelect.appendChild(opt);
         }
 
-        // 변경 이벤트 연결
+        // 변경 이벤트 연결 (값을 바꾸면 달력 이동)
         yearSelect.addEventListener('change', () => {
             calendarDate.setFullYear(parseInt(yearSelect.value));
             renderAdminCalendar();
@@ -406,13 +409,12 @@ function setupCalendarEvents() {
 }
 
 function renderAdminCalendar() {
-    // calTitle 체크 제거 (삭제했으므로)
     if (!calGrid) return;
 
     const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
+    const month = calendarDate.getMonth(); // 0-based
     
-    // 셀렉트 박스 값을 현재 캘린더 날짜와 동기화
+    // [중요] 셀렉트 박스 값을 현재 캘린더 날짜와 동기화
     const yearSelect = document.getElementById('admin-cal-year');
     const monthSelect = document.getElementById('admin-cal-month');
     if (yearSelect) yearSelect.value = year;
@@ -423,16 +425,23 @@ function renderAdminCalendar() {
     
     calGrid.innerHTML = '';
 
+    // 빈 날짜 채우기
     for (let i = 0; i < firstDay; i++) {
         calGrid.appendChild(document.createElement('div'));
     }
 
+    // 날짜 생성
     for (let i = 1; i <= lastDate; i++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        // 날짜 비교 시에도 정확한 포맷 사용
+        
+        // 데이터 필터링 (해당 날짜에 데이터가 있는지 확인)
         const count = allData.filter(item => item.date && item.date === dateStr).length;
         const isSelected = selectedCalDate === dateStr;
-        const isToday = (new Date().toISOString().slice(0, 10) === dateStr);
+        
+        // 오늘 날짜 확인 (KST 기준 단순 비교)
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const isToday = (todayStr === dateStr);
 
         const cell = document.createElement('div');
         cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-700 relative
@@ -441,6 +450,8 @@ function renderAdminCalendar() {
         `;
         
         let html = `<span class="text-sm font-bold ${isToday ? 'text-red-400' : ''}">${i}</span>`;
+        
+        // 데이터 점 표시
         if (count > 0) {
             html += `<div class="flex gap-0.5 mt-1">`;
             for(let k=0; k<Math.min(count, 3); k++) {
@@ -451,70 +462,17 @@ function renderAdminCalendar() {
         }
 
         cell.innerHTML = html;
-        cell.onclick = () => {
-            selectedCalDate = (selectedCalDate === dateStr) ? null : dateStr;
-            renderAdminCalendar(); 
-            if (selectedCalDate) {
-                // 정확한 날짜 일치 필터링
-                filteredData = allData.filter(item => item.date && item.date === selectedCalDate);
-            } else {
-                filteredData = allData;
-            }
-            currentPage = 1;
-            renderList();
-        };
-        calGrid.appendChild(cell);
-    }
-}
-
-function renderAdminCalendar() {
-    if(!calGrid || !calTitle) return;
-
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    calTitle.innerText = `${year}. ${String(month + 1).padStart(2, '0')}`;
-
-    const firstDay = new Date(year, month, 1).getDay();
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    
-    calGrid.innerHTML = '';
-
-    for (let i = 0; i < firstDay; i++) {
-        calGrid.appendChild(document.createElement('div'));
-    }
-
-    for (let i = 1; i <= lastDate; i++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        // 날짜 비교 시에도 정확한 포맷 사용
-        const count = allData.filter(item => item.date && item.date === dateStr).length;
-        const isSelected = selectedCalDate === dateStr;
-        const isToday = (new Date().toISOString().slice(0, 10) === dateStr);
-
-        const cell = document.createElement('div');
-        cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-700 relative
-            ${isSelected ? 'bg-gray-700 border-red-600 ring-1 ring-red-600 text-white' : 'bg-gray-800 text-gray-400'}
-            ${isToday && !isSelected ? 'border-gray-500 border-dashed border' : ''}
-        `;
         
-        let html = `<span class="text-sm font-bold ${isToday ? 'text-red-400' : ''}">${i}</span>`;
-        if (count > 0) {
-            html += `<div class="flex gap-0.5 mt-1">`;
-            for(let k=0; k<Math.min(count, 3); k++) {
-                html += `<div class="w-1 h-1 bg-red-500 rounded-full"></div>`;
-            }
-            if(count > 3) html += `<div class="w-1 h-1 bg-gray-500 rounded-full"></div>`;
-            html += `</div>`;
-        }
-
-        cell.innerHTML = html;
+        // 날짜 클릭 이벤트 (리스트 필터링)
         cell.onclick = () => {
             selectedCalDate = (selectedCalDate === dateStr) ? null : dateStr;
-            renderAdminCalendar(); 
+            renderAdminCalendar(); // 선택 상태 갱신을 위해 재렌더링
+            
             if (selectedCalDate) {
-                // 정확한 날짜 일치 필터링
                 filteredData = allData.filter(item => item.date && item.date === selectedCalDate);
             } else {
-                filteredData = allData;
+                // 선택 해제 시 해당 '월'의 전체 데이터 표시
+                filteredData = allData.filter(item => item.date && item.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`));
             }
             currentPage = 1;
             renderList();
