@@ -38,6 +38,7 @@ const TAB_MAPPING = {
 };
 
 let NEWBIE_COLLECTIONS = [
+    { id: '이마키스', name: '이마키스' }, 
     { id: '질투', name: '질투' }, 
     { id: '친지마', name: '친지마' }, 
     { id: '모음집', name: '모음집' }
@@ -801,7 +802,7 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.");
+    document.getElementById('more-info-button').onclick = () => alert("오류 및 문의사항은 @Penta_1031 로 제보 부탁드립니다.\n아카이브에 도움을 주신 @tody_N 님 감사합니다.");
     
     const adminBtn = document.getElementById('admin-login');
     if (adminBtn) {
