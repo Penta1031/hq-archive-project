@@ -82,7 +82,7 @@
             <section id="calendar-section" class="hidden mb-8 animate-fade-in relative">
                 <div class="flex flex-col md:flex-row items-center justify-between mb-6 px-2 gap-4 md:gap-0">
                     <div class="relative z-20">
-                        <button id="calendar-title-btn" class="text-3xl font-bold text-white hover:text-red-500 transition flex items-center gap-2">
+                        <button type="button" id="calendar-title-btn" class="text-3xl font-bold text-white hover:text-red-500 transition flex items-center gap-2">
                             <span id="calendar-title-text"></span>
                             <i class="fas fa-caret-down text-sm"></i>
                         </button>
@@ -91,13 +91,13 @@
                                 <select id="year-select" class="bg-gray-700 text-white p-2 rounded border border-gray-600 w-full focus:border-red-600 outline-none"></select>
                                 <select id="month-select" class="bg-gray-700 text-white p-2 rounded border border-gray-600 w-full focus:border-red-600 outline-none"></select>
                             </div>
-                            <button id="apply-date-btn" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded font-bold text-sm transition">이동하기</button>
+                            <button type="button" id="apply-date-btn" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded font-bold text-sm transition">이동하기</button>
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <button id="prev-month" class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-full transition"><i class="fas fa-chevron-left"></i></button>
-                        <button id="today-btn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full text-sm font-bold transition">Today</button>
-                        <button id="next-month" class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-full transition"><i class="fas fa-chevron-right"></i></button>
+                        <button type="button" id="prev-month" class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-full transition"><i class="fas fa-chevron-left"></i></button>
+                        <button type="button" id="today-btn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full text-sm font-bold transition">Today</button>
+                        <button type="button" id="next-month" class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-full transition"><i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
                 <div class="grid grid-cols-7 text-center mb-2 text-gray-500 font-bold text-xs md:text-sm">

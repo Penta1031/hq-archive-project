@@ -87,12 +87,17 @@ let calendarDate = new Date();
 let selectedDate = null;
 
 // ============================================================================
-// 🚀 앱 초기화
+// 🚀 앱 초기화 (initApp 함수 전체 교체)
 // ============================================================================
 async function initApp() {
     console.log("App Start...");
-    renderMainTabs(); //    
-   
+    
+    // 1. UI 및 이벤트 먼저 초기화 (데이터 로딩 전에도 버튼이 눌리도록 함)
+    renderMainTabs();
+    initDatePicker();      // 날짜 선택 옵션 생성
+    setupEventListeners(); // 버튼 이벤트 연결 (위치 이동됨!)
+
+    // 2. 데이터 로드
     const fullRawData = await fetchGoogleSheetData('full');
     if (fullRawData) {
         updateDataAndRender(fullRawData);
@@ -102,9 +107,6 @@ async function initApp() {
             localStorage.setItem('hq_archive_config', JSON.stringify(fullRawData.config));
         }
     }
-
-    setupEventListeners();
-    initDatePicker();
 }
 
 async function fetchGoogleSheetData(mode) {
@@ -758,11 +760,15 @@ function renderContent() {
     else loadMoreContainer.classList.remove('hidden');
 }
 
+// ============================================================================
+// 👂 이벤트 리스너 설정 (setupEventListeners 함수 전체 교체)
+// ============================================================================
 function setupEventListeners() {
+    // 1. 시청하기 버튼
     const watchBtn = document.getElementById('watch-button');
     if(watchBtn) {
         watchBtn.onclick = () => {
-            const searchContainer = document.getElementById('search-input').parentElement.parentElement;
+            const searchContainer = document.getElementById('search-input')?.parentElement?.parentElement;
             if (searchContainer) {
                 const y = searchContainer.getBoundingClientRect().top + window.pageYOffset - 20;
                 window.scrollTo({top: y, behavior: 'smooth'});
@@ -772,6 +778,8 @@ function setupEventListeners() {
         };
     }
 
+    // 2. 검색창
+    const searchInput = document.getElementById('search-input');
     if(searchInput) {
         searchInput.addEventListener('input', (e) => {
             searchQuery = e.target.value.trim();
@@ -780,36 +788,58 @@ function setupEventListeners() {
         });
     }
 
-    document.getElementById('prev-month').onclick = () => {
-        calendarDate.setMonth(calendarDate.getMonth() - 1);
-        renderCalendar();
-        renderContent();
-    };
-    document.getElementById('next-month').onclick = () => {
-        calendarDate.setMonth(calendarDate.getMonth() + 1);
-        renderCalendar();
-        renderContent();
-    };
-    document.getElementById('today-btn').onclick = () => {
-        calendarDate = new Date();
-        selectedDate = new Date().toISOString().slice(0, 10);
-        renderCalendar();
-        renderContent();
-    };
+    // 3. 캘린더 네비게이션 (전역 변수 대신 직접 조회하여 안전성 확보)
+    const prevBtn = document.getElementById('prev-month');
+    const nextBtn = document.getElementById('next-month');
+    const todayBtn = document.getElementById('today-btn');
+    const titleBtn = document.getElementById('calendar-title-btn');
+    const datePicker = document.getElementById('date-picker');
+    const applyBtn = document.getElementById('apply-date-btn');
 
-    if(calendarTitleBtn) {
-        calendarTitleBtn.onclick = (e) => {
-            e.stopPropagation();
+    if(prevBtn) {
+        prevBtn.onclick = () => {
+            calendarDate.setMonth(calendarDate.getMonth() - 1);
+            renderCalendar();
+            renderContent();
+        };
+    }
+    
+    if(nextBtn) {
+        nextBtn.onclick = () => {
+            calendarDate.setMonth(calendarDate.getMonth() + 1);
+            renderCalendar();
+            renderContent();
+        };
+    }
+
+    if(todayBtn) {
+        todayBtn.onclick = () => {
+            calendarDate = new Date();
+            selectedDate = new Date().toISOString().slice(0, 10);
+            renderCalendar();
+            renderContent();
+        };
+    }
+
+    // 캘린더 제목 클릭 (드롭다운 토글)
+    if(titleBtn && datePicker) {
+        titleBtn.onclick = (e) => {
+            e.stopPropagation(); // 이벤트 버블링 방지
             datePicker.classList.toggle('hidden');
             datePicker.classList.toggle('flex');
         };
     }
 
-    if(applyDateBtn) {
-        applyDateBtn.onclick = () => {
+    // 드롭다운 날짜 적용 버튼
+    if(applyBtn) {
+        applyBtn.onclick = () => {
+            const yearSelect = document.getElementById('year-select');
+            const monthSelect = document.getElementById('month-select');
+            
             const y = parseInt(yearSelect.value);
             const m = parseInt(monthSelect.value);
             calendarDate = new Date(y, m, 1);
+            
             datePicker.classList.add('hidden');
             datePicker.classList.remove('flex');
             renderCalendar();
@@ -818,9 +848,11 @@ function setupEventListeners() {
     }
 
     document.addEventListener('click', (e) => {
-        if (datePicker && !datePicker.contains(e.target) && !calendarTitleBtn.contains(e.target)) {
-            datePicker.classList.add('hidden');
-            datePicker.classList.remove('flex');
+        if (datePicker && !datePicker.classList.contains('hidden')) {
+            if (!datePicker.contains(e.target) && !titleBtn.contains(e.target)) {
+                datePicker.classList.add('hidden');
+                datePicker.classList.remove('flex');
+            }
         }
     });
 
