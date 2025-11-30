@@ -620,12 +620,32 @@ function renderCategories() {
             isSelected ? 'bg-red-600 border-red-600 text-white' : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white'
         }`;
         btn.innerText = cat;
+                // [수정 전] 기존 코드 (중복 선택 가능)
+        /*
         btn.onclick = () => {
             if (selectedCategories.has(cat)) selectedCategories.delete(cat);
             else selectedCategories.add(cat);
             currentPage = 1;
             renderCategories();
             renderContent();
+        };
+        */
+
+        // [수정 후] 변경 코드 (1개만 선택 가능)
+        btn.onclick = () => {
+            // 이미 선택된 것을 다시 누르면 선택 해제
+            if (selectedCategories.has(cat)) {
+                selectedCategories.clear();
+            } 
+            // 새로운 것을 누르면 기존 것 지우고 새로 추가
+            else {
+                selectedCategories.clear(); // 기존 선택 초기화
+                selectedCategories.add(cat); // 새 카테고리 추가
+            }
+            
+            currentPage = 1;
+            renderCategories(); // 버튼 스타일 갱신
+            renderContent();    // 리스트 필터링 적용
         };
         keywordFilterSection.appendChild(btn);
     });
