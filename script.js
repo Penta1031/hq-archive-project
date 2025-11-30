@@ -494,7 +494,9 @@ function renderCalendar() {
         const isToday = (todayStr === dateStr);
         const isSelected = selectedDate === dateStr;
 
-        cell = document.createElement('div');
+        // [수정] div -> button 으로 변경하고 type 속성 추가
+        const cell = document.createElement('button'); 
+        cell.type = 'button';
         cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-800 relative
             ${isSelected ? 'bg-gray-800 border-red-600 text-white' : 'text-gray-400'}
             ${isToday ? 'border-2 border-red-600 text-white font-bold' : 'border border-transparent'}

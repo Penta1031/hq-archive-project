@@ -444,7 +444,9 @@ function renderAdminCalendar() {
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const isToday = (todayStr === dateStr);
 
-        const cell = document.createElement('div');
+        // [수정] div -> button 으로 변경하고 type 속성 추가
+        const cell = document.createElement('button');
+        cell.type = 'button';
         cell.className = `aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer transition duration-200 border border-transparent hover:bg-gray-700 relative
             ${isSelected ? 'bg-gray-700 border-red-600 ring-1 ring-red-600 text-white' : 'bg-gray-800 text-gray-400'}
             ${isToday && !isSelected ? 'border-gray-500 border-dashed border' : ''}
