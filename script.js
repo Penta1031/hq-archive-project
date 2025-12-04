@@ -333,6 +333,8 @@ function dateSort(a, b) {
     return dateB.localeCompare(dateA);
 }
 
+// ... (이전 코드 유지)
+
 function processRawData(data) {
     return data.map(item => {
         const title = (item['제목'] || item['title'] || '').trim();
@@ -356,50 +358,53 @@ function processRawData(data) {
         let standardDate = '';
         let dateDisplay = rawDate;
 
-        if (rawDate) {
-            // 1. 문자열로 변환 및 양끝 공백 제거
-            let tempDateStr = String(rawDate).trim();
-            
-            // [핵심 수정] 문자열 내의 '모든 공백'을 제거 (2017. 7. 22 -> 2017.7.22)
-            tempDateStr = tempDateStr.replace(/\s+/g, '');
+        // [script.js 파일의 processRawData 함수 내부]
 
-            // 2. ISO 형식(T 포함)인 경우 앞 10자리만 추출
+        // ... (생략)
+        // ... processRawData 함수 내부 ...
+
+        // ... processRawData 함수 내부 ...
+
+        if (rawDate) {
+            // 1. 문자열로 변환 및 모든 공백 제거
+            let tempDateStr = String(rawDate).trim().replace(/\s+/g, '');
+
+            // ⚡ [이 부분을 교체하세요] ⚡
+            // 기존: ISO 형식(T 포함)인 경우 앞 10자리만 추출 (UTC 기준이라 하루 밀림 발생)
+            // 수정: ISO 형식인 경우 '한국 시간(Asia/Seoul)' 기준으로 날짜(YYYY-MM-DD) 변환
             if (tempDateStr.includes('T')) {
-                tempDateStr = tempDateStr.split('T')[0];
+                const dateObj = new Date(tempDateStr);
+                // 한국 시간대 적용하여 YYYY-MM-DD 형식으로 변환
+                tempDateStr = dateObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
             }
 
             // 3. 구분자 통일 (. 또는 / 를 - 로 변경)
-            // 2017.7.22 -> 2017-7-22
             tempDateStr = tempDateStr.replace(/\./g, '-').replace(/\//g, '-');
 
-            // 4. 연-월-일 분리 및 0 채우기 (표준화)
+            // 4. 맨 뒤에 '-'가 남아있다면 제거 (아까 추가한 코드 유지)
+            if (tempDateStr.endsWith('-')) {
+                tempDateStr = tempDateStr.slice(0, -1);
+            }
+
+            // ... (아래 코드는 그대로 유지)
+
+            // 4. 연-월-일 분리
             const parts = tempDateStr.split('-');
             
+            // parts.length가 3인지 확인 (이제 2024-12-04- 문제 해결됨)
             if (parts.length === 3) {
                 const y = parts[0];
-                const m = parts[1].padStart(2, '0'); // 7 -> 07
-                const d = parts[2].padStart(2, '0'); // 22 -> 22
+                const m = parts[1].padStart(2, '0');
+                const d = parts[2].padStart(2, '0');
                 
-                // 숫자가 맞는지 확인 후 표준 포맷 생성
                 if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-                    standardDate = `${y}-${m}-${d}`; // 결과: 2017-07-22
-                    dateDisplay = standardDate;
-                } else {
-                    dateDisplay = rawDate;
-                }
-            } else {
-                // 형식이 특이할 경우 최후의 수단으로 Date 객체 사용
-                const safeDateStr = tempDateStr.replace(/-/g, '/');
-                const dateObj = new Date(safeDateStr);
-                if (!isNaN(dateObj.getTime())) {
-                    const y = dateObj.getFullYear();
-                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    const d = String(dateObj.getDate()).padStart(2, '0');
                     standardDate = `${y}-${m}-${d}`;
                     dateDisplay = standardDate;
                 } else {
                     dateDisplay = rawDate;
                 }
+            } else {
+                // ... (else 부분 기존 유지)
             }
         }
 
