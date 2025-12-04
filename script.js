@@ -357,41 +357,50 @@ function processRawData(data) {
         let dateDisplay = rawDate;
 
         if (rawDate) {
-            let tempDate = rawDate;
+            // 1. 문자열로 변환 및 양끝 공백 제거
+            let tempDateStr = String(rawDate).trim();
             
-            // ⚡ [수정] 날짜 보정 로직 (UTC -> KST/Local)
-            // 1. 이미 YYYY-MM-DD 형식이면 그대로 유지
-            if (/^\d{4}-\d{2}-\d{2}$/.test(tempDate)) {
-                // pass
-            } 
-            // 2. ISO 포맷 등(T 포함)이면 Date 객체로 변환해 Local YYYY-MM-DD 추출
-            else {
-                const dateObj = new Date(tempDate);
+            // [핵심 수정] 문자열 내의 '모든 공백'을 제거 (2017. 7. 22 -> 2017.7.22)
+            tempDateStr = tempDateStr.replace(/\s+/g, '');
+
+            // 2. ISO 형식(T 포함)인 경우 앞 10자리만 추출
+            if (tempDateStr.includes('T')) {
+                tempDateStr = tempDateStr.split('T')[0];
+            }
+
+            // 3. 구분자 통일 (. 또는 / 를 - 로 변경)
+            // 2017.7.22 -> 2017-7-22
+            tempDateStr = tempDateStr.replace(/\./g, '-').replace(/\//g, '-');
+
+            // 4. 연-월-일 분리 및 0 채우기 (표준화)
+            const parts = tempDateStr.split('-');
+            
+            if (parts.length === 3) {
+                const y = parts[0];
+                const m = parts[1].padStart(2, '0'); // 7 -> 07
+                const d = parts[2].padStart(2, '0'); // 22 -> 22
+                
+                // 숫자가 맞는지 확인 후 표준 포맷 생성
+                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                    standardDate = `${y}-${m}-${d}`; // 결과: 2017-07-22
+                    dateDisplay = standardDate;
+                } else {
+                    dateDisplay = rawDate;
+                }
+            } else {
+                // 형식이 특이할 경우 최후의 수단으로 Date 객체 사용
+                const safeDateStr = tempDateStr.replace(/-/g, '/');
+                const dateObj = new Date(safeDateStr);
                 if (!isNaN(dateObj.getTime())) {
                     const y = dateObj.getFullYear();
                     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
                     const d = String(dateObj.getDate()).padStart(2, '0');
-                    tempDate = `${y}-${m}-${d}`;
-                } else if (typeof tempDate === 'string' && tempDate.length > 10) {
-                     // 변환 실패 시 기존처럼 앞에서 10자리 자르기 (Fallback)
-                     tempDate = tempDate.substring(0, 10);
+                    standardDate = `${y}-${m}-${d}`;
+                    dateDisplay = standardDate;
+                } else {
+                    dateDisplay = rawDate;
                 }
             }
-            
-            // 3. 포맷 표준화 (.-/ -> -)
-            const cleanDate = String(tempDate).replace(/\./g, '-').replace(/\//g, '-');
-
-            if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
-                const parts = cleanDate.split('-');
-                standardDate = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-                dateDisplay = standardDate;
-            } else { 
-                dateDisplay = rawDate; 
-            }
-        } else if (year && month) {
-            dateDisplay = `${year}-${month.padStart(2, '0')}`;
-        } else if (year) { 
-            dateDisplay = year; 
         }
 
         let collectionName = '기타';
