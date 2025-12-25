@@ -2,7 +2,7 @@
 // ⚙️ Admin 설정 및 상태 관리
 // ============================================================================
 // ❗ [중요] Admin.gs 배포 후 발급받은 "웹 앱 URL"을 아래에 입력하세요.
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwbWnHN25hoEVg4mEBl5iLiQ8222u3L67A9MrNSJ7jUurE3426O16w6MBaaO7L89BGv/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxLGScdrY_0C4__P4R49tajkaQrpFEIoz-49Yyqv3DMYEbmHz3bhRtE6udCFrEaid64/exec';
 
 let allData = [];      // DATA 탭용 데이터 (운영 DB)
 let roadData = [];     // ROAD 탭용 데이터 (대기실)
