@@ -38,6 +38,7 @@ const TAB_MAPPING = {
 };
 
 let NEWBIE_COLLECTIONS = [
+    { id: '커플템', name: '커플템' }, 
     { id: '이마키스', name: '이마키스' }, 
     { id: '질투', name: '질투' }, 
     { id: '친지마', name: '친지마' }, 
